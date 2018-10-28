@@ -26,7 +26,6 @@ class LemmaTokenizer(object):
 				if string.punctuation.find(tokLem) == -1:
 					if contractions.find(tokLem) == -1:
 						tokens += [tokLem]
-
 		return tokens
 
 
@@ -37,6 +36,10 @@ def preprocess(data):
 	# print(countVect.get_stop_words())
 	print(countVect.get_feature_names())
 	# print(termMatrix.toarray())
+	tfidfTrans = TfidfTransformer()
+	tfidfMatrix = tfidfTrans.fit_transform(termMatrix)
+	# print(tfidfMatrix.toarray())
+	# print(countVect.get_feature_names()[34])
 
 
 
@@ -45,7 +48,7 @@ def preprocess(data):
 
 if __name__ == '__main__':
 	twentyNewsTrain = fetch_20newsgroups(subset='train', categories= ['sci.med'], shuffle=True, random_state=42)
-	preprocess(twentyNewsTrain.data[0:2])
+	preprocess(twentyNewsTrain.data[0:1])
 
 
 
