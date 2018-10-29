@@ -7,6 +7,14 @@ from nltk.corpus import wordnet as wn
 import string
 import numpy as np
 
+import gensim
+from gensim.test.utils import common_texts
+from gensim.corpora.dictionary import Dictionary
+from gensim.models.ldamodel import LdaModel
+
+
+
+
 contractions = "n't'll're've's'm'd"
 
 class LemmaTokenizer(object):
@@ -94,11 +102,14 @@ if __name__ == '__main__':
 	print("category, docCount, sentCount, wordCount, numUniqueWords, meanSentLength, minSentLength, maxSentLength, stdSentLength")
 	
 
-	# twentyNewsTrain = fetch_20newsgroups(subset='train', categories= ['sci.med'], shuffle=True, random_state=42)
+	twentyNewsTrain = fetch_20newsgroups(subset='train', categories= ['sci.med'], shuffle=True, random_state=42)
 	# twentyNewsTrain = fetch_20newsgroups(subset='train', categories= cats, shuffle=True, random_state=42)
-	# processedVocab, processedWeights = preprocess(twentyNewsTrain.data, False)
-	# stats = docStats(twentyNewsTrain.data, processedVocab, "total")
-	
+	processedVocab, processedWeights = preprocess(twentyNewsTrain.data, True)
+	stats = docStats(twentyNewsTrain.data, processedVocab, "total")
+
+	common_dictionary = Dictionary(common_texts)
+	common_corpus = [common_dictionary.doc2bow(text) for text in common_texts]
+	lda = LdaModel(common_corpus, num_topics=10)
 
 	''' # Gather category specific document statistics
 	f = open("./docStats.txt", 'w')
@@ -113,7 +124,7 @@ if __name__ == '__main__':
 	f.close()
 	'''
 
-	# Gather data for box-plot visualization
+	''' # Gather data for box-plot visualization
 	# f = open("./docStats.txt", 'w')
 	# f.write("category, docCount, sentCount, wordCount, numUniqueWords, meanSentLength, minSentLength, maxSentLength, stdSentLength\n")
 	for entry in cats:
@@ -124,6 +135,7 @@ if __name__ == '__main__':
 		stats = docStats(twentyNewsTrain.data, processedVocab, entry)
 		# f.write(str(cat) + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
 	# f.close()
+	'''
 	
 
 
