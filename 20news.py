@@ -30,19 +30,22 @@ class LemmaTokenizer(object):
 		return tokens
 
 
-def preprocess(data): 
+def preprocess(data, PRINT): 
 	countVect = CountVectorizer(stop_words = 'english', tokenizer=LemmaTokenizer())
 	termMatrix = countVect.fit_transform(data)
 	# print(countVect.get_stop_words())
-	# print(countVect.get_feature_names())
-	# print(termMatrix.toarray())
+	
 	tfidfTrans = TfidfTransformer()
 	tfidfMatrix = tfidfTrans.fit_transform(termMatrix)
-	# print(tfidfMatrix.toarray())
-	# print(countVect.get_feature_names()[34])
+	
+	if PRINT == True:
+		print(countVect.get_feature_names())
+		print(termMatrix.toarray())
+		print(tfidfMatrix.toarray())
+
 	return countVect, tfidfMatrix
 
-def docStats(data, vocab):
+def docStats(data, vocab, cat):
 	docCount = 0
 	sentCount = 0
 	wordCount = 0 
@@ -52,13 +55,15 @@ def docStats(data, vocab):
 	maxSentLength = None
 
 	tokenize = LemmaTokenizer()
-
+	catStat = open(str(cat).replace(".","_") + ".txt", 'w')
+	catStat.write(str("data") + str("\n"))
 	for doc in data: 
 		docCount += 1
 		for sentence in sent_tokenize(doc):
 			# print("Sent --- " + sentence)
 			sentCount += 1 
 			numSentWords = len(tokenize(sentence))
+			catStat.write(str(numSentWords) + str("\n"))
 			wordCount += numSentWords
 			wordCountSquared += numSentWords**2
 			if firstPass: 
@@ -69,26 +74,57 @@ def docStats(data, vocab):
 				minSentLength = numSentWords
 			elif numSentWords > maxSentLength: 
 				maxSentLength = numSentWords
-
+	catStat.close()
 	meanSentLength = wordCount/sentCount
 	varSentLength = (wordCountSquared/sentCount) - (meanSentLength**2)
 	stdSentLength = np.float32(np.sqrt(varSentLength))
 	numUniqueWords = len(vocab.get_feature_names())
 
 	stats = [docCount, sentCount, wordCount, numUniqueWords, meanSentLength, minSentLength, maxSentLength, stdSentLength]
-	# print(stats)
+	
+	print(str(cat) + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
 	return stats
 
 
 
 
 if __name__ == '__main__':
-	twentyNewsTrain = fetch_20newsgroups(subset='train', categories= ['sci.med'], shuffle=True, random_state=42)
-	processedVocab, processedWeights = preprocess(twentyNewsTrain.data[0:2])
-	print(processedVocab.get_feature_names())
-	stats = docStats(twentyNewsTrain.data[0:2], processedVocab)
-	print(stats)
+	cats = ["comp.windows.x", "comp.os.ms-windows.misc", "talk.politics.misc", "comp.sys.ibm.pc.hardware","talk.religion.misc","rec.autos","sci.space","talk.politics.guns","alt.atheism","misc.forsale","comp.graphics","sci.electronics","sci.crypt","soc.religion.christian","rec.sport.hockey","sci.med","rec.motorcycles","comp.sys.mac.hardware","talk.politics.mideast","rec.sport.baseball"];
+	
+	print("category, docCount, sentCount, wordCount, numUniqueWords, meanSentLength, minSentLength, maxSentLength, stdSentLength")
+	
 
+	# twentyNewsTrain = fetch_20newsgroups(subset='train', categories= ['sci.med'], shuffle=True, random_state=42)
+	# twentyNewsTrain = fetch_20newsgroups(subset='train', categories= cats, shuffle=True, random_state=42)
+	# processedVocab, processedWeights = preprocess(twentyNewsTrain.data, False)
+	# stats = docStats(twentyNewsTrain.data, processedVocab, "total")
+	
+
+	''' # Gather category specific document statistics
+	f = open("./docStats.txt", 'w')
+	f.write("category, docCount, sentCount, wordCount, numUniqueWords, meanSentLength, minSentLength, maxSentLength, stdSentLength\n")
+	for entry in cats:
+		
+		twentyNewsTrain = fetch_20newsgroups(subset='train', categories= [entry], shuffle=True, random_state=42)
+		processedVocab, processedWeights = preprocess(twentyNewsTrain.data, False)
+
+		stats = docStats(twentyNewsTrain.data, processedVocab, f, entry)
+		f.write(str(cat) + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
+	f.close()
+	'''
+
+	# Gather data for box-plot visualization
+	# f = open("./docStats.txt", 'w')
+	# f.write("category, docCount, sentCount, wordCount, numUniqueWords, meanSentLength, minSentLength, maxSentLength, stdSentLength\n")
+	for entry in cats:
+		
+		twentyNewsTrain = fetch_20newsgroups(subset='train', categories= [entry], shuffle=True, random_state=42)
+		processedVocab, processedWeights = preprocess(twentyNewsTrain.data, False)
+
+		stats = docStats(twentyNewsTrain.data, processedVocab, entry)
+		# f.write(str(cat) + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
+	# f.close()
+	
 
 
 
