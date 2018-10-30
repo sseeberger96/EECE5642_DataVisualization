@@ -38,21 +38,31 @@ class LemmaTokenizer(object):
 		return tokens
 
 
-def preprocess(data, PRINT): 
+def preprocess(data, cat, PRINT): 
 	countVect = CountVectorizer(stop_words = 'english', tokenizer=LemmaTokenizer())
 	termMatrix = countVect.fit_transform(data)
-	# print(countVect.get_stop_words())
 	
 	tfidfTrans = TfidfTransformer()
 	tfidfMatrix = tfidfTrans.fit_transform(termMatrix)
 
+	# Thresholding to get rid of low frequency words
 	ignored_indices = tfidfMatrix < .1
 	tfidfMatrix[ignored_indices] = 0
 	
+	# print(tfidfMatrix.toarray())
 	if PRINT == True:
-		print(countVect.get_feature_names())
-		print(termMatrix.toarray())
-		print(tfidfMatrix.toarray())
+		catStat = open("preprocess_" + str(cat).replace(".","_") + ".txt", 'w')
+		catStat.write(str("") + str("\n"))
+
+		print(str(tfidfMatrix.toarray()))
+		print(str(type(tfidfMatrix.toarray())))
+		print(str(tfidfMatrix.toarray().size))
+
+		index = 1;
+		for entry in countVect.get_feature_names():
+			catStat.write(str(entry) + str(", ") + str(tfidfMatrix.toarray().sum(axis=index)) + str("\n"))
+			index = index + 1;
+		catStat.close()
 
 	return ignored_indices, countVect, tfidfMatrix
 
@@ -107,8 +117,10 @@ if __name__ == '__main__':
 	# Do all at once
 	twentyNewsTrain = fetch_20newsgroups(subset='train', categories= ['sci.med'], shuffle=True, random_state=42)
 	# twentyNewsTrain = fetch_20newsgroups(subset='train', categories= cats, shuffle=True, random_state=42)
-	ignored_indices, processedVocab, processedWeights = preprocess(twentyNewsTrain.data, True)
+	ignored_indices, processedVocab, processedWeights = preprocess(twentyNewsTrain.data, "sci.med", False)
 	stats = docStats(twentyNewsTrain.data, processedVocab, "total")
+
+	print(str(processedWeights.size))
 
 	vocabDict = {};
 	index = 0;
@@ -116,18 +128,9 @@ if __name__ == '__main__':
 		vocabDict[index] = word;
 		index = index + 1;
 
+	print(str(vocabDict))
 	lda = LdaModel(np.transpose(processedWeights), id2word=vocabDict, num_topics=1)
-	'''
-	common_dictionary = Dictionary(common_texts)
-	common_corpus = [common_dictionary.doc2bow(text) for text in common_texts]
-	cat1_lda = LdaModel(common_corpus, num_topics=1)
-
-	input(str(type(common_texts)))
-	input(str(len(common_texts)))
-	input(str(type(common_texts)))
-	input(str(common_texts))
-	'''
-	# input(str(common_dictionary))
+	
 
 	''' # Gather category specific document statistics
 	f = open("./docStats.txt", 'w')
@@ -135,7 +138,7 @@ if __name__ == '__main__':
 	for entry in cats:
 		
 		twentyNewsTrain = fetch_20newsgroups(subset='train', categories= [entry], shuffle=True, random_state=42)
-		ignored_indices, processedVocab, processedWeights = preprocess(twentyNewsTrain.data, False)
+		ignored_indices, processedVocab, processedWeights = preprocess(twentyNewsTrain.data, entry, False)
 
 		stats = docStats(twentyNewsTrain.data, processedVocab, f, entry)
 		f.write(str(cat) + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
