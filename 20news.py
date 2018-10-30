@@ -45,13 +45,16 @@ def preprocess(data, PRINT):
 	
 	tfidfTrans = TfidfTransformer()
 	tfidfMatrix = tfidfTrans.fit_transform(termMatrix)
+
+	ignored_indices = tfidfMatrix < .1
+	tfidfMatrix[ignored_indices] = 0
 	
 	if PRINT == True:
 		print(countVect.get_feature_names())
 		print(termMatrix.toarray())
 		print(tfidfMatrix.toarray())
 
-	return countVect, tfidfMatrix
+	return ignored_indices, countVect, tfidfMatrix
 
 def docStats(data, vocab, cat):
 	docCount = 0
@@ -101,15 +104,30 @@ if __name__ == '__main__':
 	
 	print("category, docCount, sentCount, wordCount, numUniqueWords, meanSentLength, minSentLength, maxSentLength, stdSentLength")
 	
-
+	# Do all at once
 	twentyNewsTrain = fetch_20newsgroups(subset='train', categories= ['sci.med'], shuffle=True, random_state=42)
 	# twentyNewsTrain = fetch_20newsgroups(subset='train', categories= cats, shuffle=True, random_state=42)
-	processedVocab, processedWeights = preprocess(twentyNewsTrain.data, True)
+	ignored_indices, processedVocab, processedWeights = preprocess(twentyNewsTrain.data, True)
 	stats = docStats(twentyNewsTrain.data, processedVocab, "total")
 
+	vocabDict = {};
+	index = 0;
+	for word in processedVocab.get_feature_names():
+		vocabDict[index] = word;
+		index = index + 1;
+
+	lda = LdaModel(np.transpose(processedWeights), id2word=vocabDict, num_topics=1)
+	'''
 	common_dictionary = Dictionary(common_texts)
 	common_corpus = [common_dictionary.doc2bow(text) for text in common_texts]
-	lda = LdaModel(common_corpus, num_topics=10)
+	cat1_lda = LdaModel(common_corpus, num_topics=1)
+
+	input(str(type(common_texts)))
+	input(str(len(common_texts)))
+	input(str(type(common_texts)))
+	input(str(common_texts))
+	'''
+	# input(str(common_dictionary))
 
 	''' # Gather category specific document statistics
 	f = open("./docStats.txt", 'w')
@@ -117,7 +135,7 @@ if __name__ == '__main__':
 	for entry in cats:
 		
 		twentyNewsTrain = fetch_20newsgroups(subset='train', categories= [entry], shuffle=True, random_state=42)
-		processedVocab, processedWeights = preprocess(twentyNewsTrain.data, False)
+		ignored_indices, processedVocab, processedWeights = preprocess(twentyNewsTrain.data, False)
 
 		stats = docStats(twentyNewsTrain.data, processedVocab, f, entry)
 		f.write(str(cat) + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
@@ -130,7 +148,7 @@ if __name__ == '__main__':
 	for entry in cats:
 		
 		twentyNewsTrain = fetch_20newsgroups(subset='train', categories= [entry], shuffle=True, random_state=42)
-		processedVocab, processedWeights = preprocess(twentyNewsTrain.data, False)
+		ignored_indices, processedVocab, processedWeights = preprocess(twentyNewsTrain.data, False)
 
 		stats = docStats(twentyNewsTrain.data, processedVocab, entry)
 		# f.write(str(cat) + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
