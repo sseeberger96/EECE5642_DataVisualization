@@ -8,8 +8,6 @@ import string
 import numpy as np
 
 import gensim
-from gensim.test.utils import common_texts
-from gensim.corpora.dictionary import Dictionary
 from gensim.models.ldamodel import LdaModel
 
 
@@ -40,14 +38,26 @@ class LemmaTokenizer(object):
 
 def preprocess(data, cat, PRINT): 
 	countVect = CountVectorizer(stop_words = 'english', tokenizer=LemmaTokenizer())
-	termMatrix = countVect.fit_transform(data)
+	termMatrixSparse = countVect.fit_transform(data)
 	
 	tfidfTrans = TfidfTransformer()
-	tfidfMatrix = tfidfTrans.fit_transform(termMatrix)
+	tfidfMatrix = tfidfTrans.fit_transform(termMatrixSparse)
 
 	# Thresholding to get rid of low frequency words
 	ignored_indices = tfidfMatrix < .1
 	tfidfMatrix[ignored_indices] = 0
+
+	termMatrix = termMatrixSparse.toarray()
+	corp = []
+
+	for doc in termMatrix:
+		docWords = []
+		index = 0
+		for word in doc: 
+			if word != 0: 
+				docWords.append((index, word))
+			index += 1
+		corp.append(docWords)
 	
 	# print(tfidfMatrix.toarray())
 	if PRINT == True:
@@ -64,7 +74,7 @@ def preprocess(data, cat, PRINT):
 			index = index + 1;
 		catStat.close()
 
-	return ignored_indices, countVect, tfidfMatrix
+	return corp, ignored_indices, countVect, tfidfMatrix
 
 def docStats(data, vocab, cat):
 	docCount = 0
@@ -117,10 +127,10 @@ if __name__ == '__main__':
 	# Do all at once
 	twentyNewsTrain = fetch_20newsgroups(subset='train', categories= ['sci.med'], shuffle=True, random_state=42)
 	# twentyNewsTrain = fetch_20newsgroups(subset='train', categories= cats, shuffle=True, random_state=42)
-	ignored_indices, processedVocab, processedWeights = preprocess(twentyNewsTrain.data, "sci.med", False)
-	stats = docStats(twentyNewsTrain.data, processedVocab, "total")
+	corpora, ignored_indices, processedVocab, processedWeights = preprocess(twentyNewsTrain.data[0:1], "sci.med", False)
+	# stats = docStats(twentyNewsTrain.data, processedVocab, "total")
 
-	print(str(processedWeights.size))
+	# print(str(processedWeights.size))
 
 	vocabDict = {};
 	index = 0;
@@ -129,7 +139,8 @@ if __name__ == '__main__':
 		index = index + 1;
 
 	print(str(vocabDict))
-	lda = LdaModel(np.transpose(processedWeights), id2word=vocabDict, num_topics=1)
+	print(corpora)
+	lda = LdaModel(corpora, id2word=vocabDict, num_topics=5)
 	
 
 	''' # Gather category specific document statistics
