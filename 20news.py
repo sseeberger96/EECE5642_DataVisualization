@@ -1,43 +1,66 @@
-from sklearn.datasets import fetch_20newsgroups 
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.feature_extraction.text import TfidfTransformer
-from nltk import word_tokenize, sent_tokenize
-from nltk.stem import WordNetLemmatizer
-from nltk.corpus import wordnet as wn 
+# General
 import string
 import numpy as np
 
+# sklearn
+from sklearn.datasets import fetch_20newsgroups 
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfTransformer
+
+# NLTK
+from nltk import word_tokenize, sent_tokenize, regexp_tokenize
+from nltk.stem import WordNetLemmatizer
+from nltk.corpus import wordnet as wn 
+from nltk.corpus import stopwords
+
+# Gensim
 import gensim
 from gensim.models.ldamodel import LdaModel
 
+# Plotting tools
+import pyLDAvis
+import pyLDAvis.gensim
+import matplotlib.pyplot as plt
+# %matplotlib inline
 
 
+import logging
+logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.ERROR)
 
-contractions = "n't'll're've's'm'd"
+import warnings
+warnings.filterwarnings("ignore",category=DeprecationWarning)
+
+
+contractions = ["n't", "'ll", "'re", "'ve", "'s", "'m", "'d", "\'s", "\'t"]
+
+corpusSpecificStopwords = ['subject', '--']
 
 class LemmaTokenizer(object):
 	def __init__(self):
 		self.lem = WordNetLemmatizer()
 	def __call__(self, doc):
 		tokens = []
+		stopWords = set(stopwords.words('english')) 
 
-		for token in word_tokenize(doc):
-			if len(wn.synsets(token)) == 0: 
-				tokLem = self.lem.lemmatize(token)
-				if string.punctuation.find(tokLem) == -1:
-					if contractions.find(tokLem) == -1:
-						tokens += [tokLem]
-			else: 
-				p = wn.synsets(token)[0].pos()
-				tokLem = self.lem.lemmatize(token, pos=p)
-				if string.punctuation.find(tokLem) == -1:
-					if contractions.find(tokLem) == -1:
-						tokens += [tokLem]
+		for token in regexp_tokenize(doc, pattern='\w+|\$[\d\.]+|\S+'):
+
+			if string.punctuation.find(token) == -1: 
+				if not token in contractions:
+					if not token in stopWords: 
+						if not token in corpusSpecificStopwords:
+							if len(wn.synsets(token)) == 0: 
+								tokLem = self.lem.lemmatize(token)
+								tokens += [tokLem]
+							else: 
+								p = wn.synsets(token)[0].pos()
+								tokLem = self.lem.lemmatize(token, pos=p)
+								tokens += [tokLem]
+
 		return tokens
 
 
 def preprocess(data, cat, PRINT): 
-	countVect = CountVectorizer(stop_words = 'english', tokenizer=LemmaTokenizer())
+	countVect = CountVectorizer(tokenizer=LemmaTokenizer())
 	termMatrixSparse = countVect.fit_transform(data)
 	
 	tfidfTrans = TfidfTransformer()
@@ -127,7 +150,7 @@ if __name__ == '__main__':
 	# Do all at once
 	twentyNewsTrain = fetch_20newsgroups(subset='train', categories= ['sci.med'], shuffle=True, random_state=42)
 	# twentyNewsTrain = fetch_20newsgroups(subset='train', categories= cats, shuffle=True, random_state=42)
-	corpora, ignored_indices, processedVocab, processedWeights = preprocess(twentyNewsTrain.data[0:1], "sci.med", False)
+	corpora, ignored_indices, processedVocab, processedWeights = preprocess(twentyNewsTrain.data, "sci.med", False)
 	# stats = docStats(twentyNewsTrain.data, processedVocab, "total")
 
 	# print(str(processedWeights.size))
@@ -138,10 +161,11 @@ if __name__ == '__main__':
 		vocabDict[index] = word;
 		index = index + 1;
 
-	print(str(vocabDict))
-	print(corpora)
-	lda = LdaModel(corpora, id2word=vocabDict, num_topics=5)
-	
+	# print(str(vocabDict))
+	# print(corpora)
+	lda = LdaModel(corpora, id2word=vocabDict, num_topics=1)
+	print(lda.print_topics())
+
 
 	''' # Gather category specific document statistics
 	f = open("./docStats.txt", 'w')
