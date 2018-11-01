@@ -53,10 +53,13 @@ class LemmaTokenizer(object):
 				if not token in contractions:
 					if not token.isdigit():
 						if len(wn.synsets(token)) == 0: 
+							'''
 							tokLem = self.lem.lemmatize(token)
 							if not tokLem in stopWords: 
 								if not tokLem in corpusSpecificStopwords:
 									tokens += [tokLem]
+							'''
+							pass
 						else: 
 							p = wn.synsets(token)[0].pos()
 							tokLem = self.lem.lemmatize(token, pos=p)
@@ -65,6 +68,14 @@ class LemmaTokenizer(object):
 									tokens += [tokLem]
 
 		return tokens
+
+
+
+def tryWord(word):
+	if not wordnet.synsets(word):
+		return False
+	else:
+		return True
 
 
 def preprocess(data, cat, PRINT): 
@@ -164,22 +175,25 @@ if __name__ == '__main__':
 	cats = ["comp.windows.x", "comp.os.ms-windows.misc", "talk.politics.misc", "comp.sys.ibm.pc.hardware","talk.religion.misc","rec.autos","sci.space","talk.politics.guns","alt.atheism","misc.forsale","comp.graphics","sci.electronics","sci.crypt","soc.religion.christian","rec.sport.hockey","sci.med","rec.motorcycles","comp.sys.mac.hardware","talk.politics.mideast","rec.sport.baseball"];
 	subcats = ["comp.windows.x", "sci.med", "rec.sport.hockey", "soc.religion.christian"]
 	# Do all at once
-	twentyNewsTrain = fetch_20newsgroups(subset='train', categories= ["sci.med"], shuffle=True, random_state=42, remove=('headers'))
+	twentyNewsTrain = fetch_20newsgroups(subset='train', categories= subcats, shuffle=True, random_state=42, remove=('headers'))
 	# twentyNewsTrain = fetch_20newsgroups(subset='train', categories= cats, shuffle=True, random_state=42)
-	corpora, vocabulary = preprocess(twentyNewsTrain.data[0:2], "sci.med", False)
+	corpora, vocabulary = preprocess(twentyNewsTrain.data, "sci.med", False)
 	# stats = docStats(twentyNewsTrain.data, processedVocab, "total")
 
 	# print(str(processedWeights.size))
 
 	# print(str(vocabDict))
-	# print(corpora)
-	# lda = LdaModel(corpora, id2word=vocabulary, num_topics=20, chunksize=100, random_state=100, update_every=1, alpha='auto', passes=5, per_word_topics=True)
-	# print(lda.print_topics())
+	#  print(corpora)
+	lda = LdaModel(corpora, id2word=vocabulary, num_topics=4, chunksize=100, random_state=100, update_every=1, alpha='auto', passes=5, per_word_topics=True)
 
-	# print('\nPerplexity: ', lda.log_perplexity(corpora))
-	# coherence_model_lda = CoherenceModel(model=lda, corpus=corpora, dictionary=vocabulary, coherence='u_mass')
-	# coherence_lda = coherence_model_lda.get_coherence()
-	# print('\nCoherence Score: ', coherence_lda)
+	for thing in lda.print_topics():
+		print(thing)
+		print("\n")
+
+	print('\nPerplexity: ', lda.log_perplexity(corpora))
+	coherence_model_lda = CoherenceModel(model=lda, corpus=corpora, dictionary=vocabulary, coherence='u_mass')
+	coherence_lda = coherence_model_lda.get_coherence()
+	print('\nCoherence Score: ', coherence_lda)
 
 
 	# vis = pyLDAvis.gensim.prepare(lda, corpora, vocabulary)
