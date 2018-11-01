@@ -16,6 +16,7 @@ from nltk.corpus import stopwords
 # Gensim
 import gensim
 from gensim.models.ldamodel import LdaModel
+from gensim.models import CoherenceModel
 
 # Plotting tools
 import pyLDAvis
@@ -32,10 +33,10 @@ logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=lo
 
 
 
-contractions = ["n't", "'ll", "'re", "'ve", "'s", "'m", "'d", "\'s", "\'t"]
+contractions = ["n't", "'ll", "'re", "'ve", "'s", "'m", "'d", "\'s", "\'t", "\'ax"]
 
-corpusSpecificStopwords = ['subject', '--']
-tfidfThreshold = 0.1
+corpusSpecificStopwords = ['subject', '--', 'you', "\'\'", "``", "...", 'would', 'use', 'get', 'know', 'article', 'line', 'one', 'also', 'nntp-posting-host', 'reply-to', 'organization', 'wa', 'ha', 'write', 'could', 'doe']
+tfidfThreshold = 0.0001
 
 class LemmaTokenizer(object):
 	def __init__(self):
@@ -44,18 +45,19 @@ class LemmaTokenizer(object):
 		tokens = []
 		stopWords = set(stopwords.words('english')) 
 
-		for token in regexp_tokenize(doc, pattern='\w+|\$[\d\.]+|\S+'):
-
+		for token in word_tokenize(doc):
 			if string.punctuation.find(token) == -1: 
 				if not token in contractions:
-					if not token in stopWords: 
-						if not token in corpusSpecificStopwords:
-							if len(wn.synsets(token)) == 0: 
-								tokLem = self.lem.lemmatize(token)
+					if len(wn.synsets(token)) == 0: 
+						tokLem = self.lem.lemmatize(token)
+						if not tokLem in stopWords: 
+							if not tokLem in corpusSpecificStopwords:
 								tokens += [tokLem]
-							else: 
-								p = wn.synsets(token)[0].pos()
-								tokLem = self.lem.lemmatize(token, pos=p)
+					else: 
+						p = wn.synsets(token)[0].pos()
+						tokLem = self.lem.lemmatize(token, pos=p)
+						if not tokLem in stopWords: 
+							if not tokLem in corpusSpecificStopwords:
 								tokens += [tokLem]
 
 		return tokens
@@ -73,6 +75,7 @@ def preprocess(data, cat, PRINT):
 	passingIndices = meanWordWeights > tfidfThreshold
 
 	newVocabulary = np.array(countVect.get_feature_names())
+	# print(newVocabulary)
 	newVocabulary = newVocabulary[passingIndices]
 	termMatrix = termMatrixSparse.toarray()
 	termMatrix = termMatrix[:,passingIndices]
@@ -155,19 +158,28 @@ def docStats(data, vocab, cat):
 
 if __name__ == '__main__':
 	cats = ["comp.windows.x", "comp.os.ms-windows.misc", "talk.politics.misc", "comp.sys.ibm.pc.hardware","talk.religion.misc","rec.autos","sci.space","talk.politics.guns","alt.atheism","misc.forsale","comp.graphics","sci.electronics","sci.crypt","soc.religion.christian","rec.sport.hockey","sci.med","rec.motorcycles","comp.sys.mac.hardware","talk.politics.mideast","rec.sport.baseball"];
-		
+	subcats = ["comp.windows.x", "sci.med", "rec.sport.hockey", "soc.religion.christian"]
 	# Do all at once
-	twentyNewsTrain = fetch_20newsgroups(subset='train', categories= ['sci.med'], shuffle=True, random_state=42)
+	twentyNewsTrain = fetch_20newsgroups(subset='train', categories= subcats, shuffle=True, random_state=42)
 	# twentyNewsTrain = fetch_20newsgroups(subset='train', categories= cats, shuffle=True, random_state=42)
-	corpora, vocabluary = preprocess(twentyNewsTrain.data[0:2], "sci.med", False)
+	corpora, vocabulary = preprocess(twentyNewsTrain.data, "sci.med", False)
 	# stats = docStats(twentyNewsTrain.data, processedVocab, "total")
 
 	# print(str(processedWeights.size))
 
 	# print(str(vocabDict))
 	# print(corpora)
-	lda = LdaModel(corpora, id2word=vocabluary, num_topics=5)
+	lda = LdaModel(corpora, id2word=vocabulary, num_topics=4, chunksize=100, random_state=100, update_every=1, alpha='auto', passes=5, per_word_topics=True)
 	print(lda.print_topics())
+
+	print('\nPerplexity: ', lda.log_perplexity(corpora))
+	coherence_model_lda = CoherenceModel(model=lda, corpus=corpora, dictionary=vocabulary, coherence='u_mass')
+	coherence_lda = coherence_model_lda.get_coherence()
+	print('\nCoherence Score: ', coherence_lda)
+
+
+	# vis = pyLDAvis.gensim.prepare(lda, corpora, vocabulary)
+	# pyLDAvis.save_html(vis, 'LDA_Visualization.html')
 
 
 	''' # Gather category specific document statistics
