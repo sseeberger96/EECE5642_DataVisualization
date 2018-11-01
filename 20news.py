@@ -23,17 +23,19 @@ import pyLDAvis.gensim
 import matplotlib.pyplot as plt
 # %matplotlib inline
 
+# Warnings
+import warnings
+warnings.filterwarnings("ignore",category=DeprecationWarning)
 
 import logging
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.ERROR)
 
-import warnings
-warnings.filterwarnings("ignore",category=DeprecationWarning)
 
 
 contractions = ["n't", "'ll", "'re", "'ve", "'s", "'m", "'d", "\'s", "\'t"]
 
 corpusSpecificStopwords = ['subject', '--']
+tfidfThreshold = 0.1
 
 class LemmaTokenizer(object):
 	def __init__(self):
@@ -63,16 +65,25 @@ def preprocess(data, cat, PRINT):
 	countVect = CountVectorizer(tokenizer=LemmaTokenizer())
 	termMatrixSparse = countVect.fit_transform(data)
 	
-	tfidfTrans = TfidfTransformer()
+	tfidfTrans = TfidfTransformer(smooth_idf = False)
 	tfidfMatrix = tfidfTrans.fit_transform(termMatrixSparse)
 
-	# Thresholding to get rid of low frequency words
-	ignored_indices = tfidfMatrix < .1
-	tfidfMatrix[ignored_indices] = 0
+	# Thresholding to get rid of unimportant words
+	meanWordWeights = np.mean(tfidfMatrix.A, axis=0)
+	passingIndices = meanWordWeights > tfidfThreshold
 
+	newVocabulary = np.array(countVect.get_feature_names())
+	newVocabulary = newVocabulary[passingIndices]
 	termMatrix = termMatrixSparse.toarray()
-	corp = []
+	termMatrix = termMatrix[:,passingIndices]
 
+	vocabDict = {};
+	index = 0;
+	for word in newVocabulary:
+		vocabDict[index] = word;
+		index = index + 1;
+
+	corp = []
 	for doc in termMatrix:
 		docWords = []
 		index = 0
@@ -81,8 +92,8 @@ def preprocess(data, cat, PRINT):
 				docWords.append((index, word))
 			index += 1
 		corp.append(docWords)
+
 	
-	# print(tfidfMatrix.toarray())
 	if PRINT == True:
 		catStat = open("preprocess_" + str(cat).replace(".","_") + ".txt", 'w')
 		catStat.write(str("") + str("\n"))
@@ -97,7 +108,7 @@ def preprocess(data, cat, PRINT):
 			index = index + 1;
 		catStat.close()
 
-	return corp, ignored_indices, countVect, tfidfMatrix
+	return corp, vocabDict
 
 def docStats(data, vocab, cat):
 	docCount = 0
@@ -144,26 +155,18 @@ def docStats(data, vocab, cat):
 
 if __name__ == '__main__':
 	cats = ["comp.windows.x", "comp.os.ms-windows.misc", "talk.politics.misc", "comp.sys.ibm.pc.hardware","talk.religion.misc","rec.autos","sci.space","talk.politics.guns","alt.atheism","misc.forsale","comp.graphics","sci.electronics","sci.crypt","soc.religion.christian","rec.sport.hockey","sci.med","rec.motorcycles","comp.sys.mac.hardware","talk.politics.mideast","rec.sport.baseball"];
-	
-	print("category, docCount, sentCount, wordCount, numUniqueWords, meanSentLength, minSentLength, maxSentLength, stdSentLength")
-	
+		
 	# Do all at once
 	twentyNewsTrain = fetch_20newsgroups(subset='train', categories= ['sci.med'], shuffle=True, random_state=42)
 	# twentyNewsTrain = fetch_20newsgroups(subset='train', categories= cats, shuffle=True, random_state=42)
-	corpora, ignored_indices, processedVocab, processedWeights = preprocess(twentyNewsTrain.data, "sci.med", False)
+	corpora, vocabluary = preprocess(twentyNewsTrain.data[0:2], "sci.med", False)
 	# stats = docStats(twentyNewsTrain.data, processedVocab, "total")
 
 	# print(str(processedWeights.size))
 
-	vocabDict = {};
-	index = 0;
-	for word in processedVocab.get_feature_names():
-		vocabDict[index] = word;
-		index = index + 1;
-
 	# print(str(vocabDict))
 	# print(corpora)
-	lda = LdaModel(corpora, id2word=vocabDict, num_topics=1)
+	lda = LdaModel(corpora, id2word=vocabluary, num_topics=5)
 	print(lda.print_topics())
 
 
