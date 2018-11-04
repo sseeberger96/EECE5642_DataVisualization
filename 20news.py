@@ -15,6 +15,7 @@ from nltk.corpus import stopwords
 
 # Gensim
 import gensim
+from gensim.corpora import Dictionary
 from gensim.models.ldamodel import LdaModel
 from gensim.models import CoherenceModel
 from gensim.test.utils import common_texts
@@ -175,29 +176,45 @@ if __name__ == '__main__':
 	cats = ["comp.windows.x", "comp.os.ms-windows.misc", "talk.politics.misc", "comp.sys.ibm.pc.hardware","talk.religion.misc","rec.autos","sci.space","talk.politics.guns","alt.atheism","misc.forsale","comp.graphics","sci.electronics","sci.crypt","soc.religion.christian","rec.sport.hockey","sci.med","rec.motorcycles","comp.sys.mac.hardware","talk.politics.mideast","rec.sport.baseball"];
 	subcats = ["comp.windows.x", "sci.med", "rec.sport.hockey", "soc.religion.christian"]
 	# Do all at once
-	twentyNewsTrain = fetch_20newsgroups(subset='train', categories= subcats, shuffle=True, random_state=42, remove=('headers'))
+	twentyNewsTrain = fetch_20newsgroups(subset='train', categories= cats, shuffle=True, random_state=42, remove=('headers'))
 	# twentyNewsTrain = fetch_20newsgroups(subset='train', categories= cats, shuffle=True, random_state=42)
 	corpora, vocabulary = preprocess(twentyNewsTrain.data, "sci.med", False)
 	# stats = docStats(twentyNewsTrain.data, processedVocab, "total")
 
-	# print(str(processedWeights.size))
+
+	# print(corpora)
+	# print(vocabulary)
+	vocabByDoc = []
+	for doc in corpora:
+		wordsInDoc = []
+		# print(doc)
+		for word in doc: 
+			for freq in range(word[1]):
+				wordsInDoc.append(vocabulary[word[0]])
+		vocabByDoc.append(wordsInDoc)
+	# print(vocabByDoc)
+	docVocabDict = Dictionary(vocabByDoc)
+	# print(docVocabDict)
+	
+
+	newCorp = [docVocabDict.doc2bow(text) for text in vocabByDoc]
+	# print(newCorp)
 
 	# print(str(vocabDict))
-	#  print(corpora)
-	lda = LdaModel(corpora, id2word=vocabulary, num_topics=4, chunksize=100, random_state=100, update_every=1, alpha='auto', passes=5, per_word_topics=True)
+	# print(corpora)
+	lda = LdaModel(newCorp, id2word=docVocabDict, num_topics=20, chunksize=100, random_state=100, update_every=1, alpha='auto', passes=10, per_word_topics=True)
 
 	for thing in lda.print_topics():
 		print(thing)
-		print("\n")
 
-	print('\nPerplexity: ', lda.log_perplexity(corpora))
-	coherence_model_lda = CoherenceModel(model=lda, corpus=corpora, dictionary=vocabulary, coherence='u_mass')
+	print('\nPerplexity: ', lda.log_perplexity(newCorp))
+	coherence_model_lda = CoherenceModel(model=lda, texts=vocabByDoc, dictionary=docVocabDict, coherence='c_v')
 	coherence_lda = coherence_model_lda.get_coherence()
 	print('\nCoherence Score: ', coherence_lda)
 
 
-	# vis = pyLDAvis.gensim.prepare(lda, corpora, vocabulary)
-	# pyLDAvis.save_html(vis, 'LDA_Visualization.html')
+	vis = pyLDAvis.gensim.prepare(lda, newCorp, docVocabDict)
+	pyLDAvis.save_html(vis, 'LDA_Visualization.html')
 
 
 	''' # Gather category specific document statistics
