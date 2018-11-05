@@ -13,12 +13,16 @@ from nltk.stem import WordNetLemmatizer
 from nltk.corpus import wordnet as wn 
 from nltk.corpus import stopwords
 
+from nltk.tokenize import word_tokenize
+
 # Gensim
 import gensim
 from gensim.corpora import Dictionary
 from gensim.models.ldamodel import LdaModel
 from gensim.models import CoherenceModel
 from gensim.test.utils import common_texts
+
+from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 
 # Plotting tools
 import pyLDAvis
@@ -53,7 +57,7 @@ class LemmaTokenizer(object):
 			if string.punctuation.find(token) == -1: 
 				if not token in contractions:
 					if not token.isdigit():
-						if len(wn.synsets(token)) == 0: 
+						if not wn.synsets(token): 
 							'''
 							tokLem = self.lem.lemmatize(token)
 							if not tokLem in stopWords: 
@@ -150,19 +154,30 @@ def docStats(data, vocab, cat):
 			catStat.write(str(numSentWords) + str("\n"))
 			wordCount += numSentWords
 			wordCountSquared += numSentWords**2
-			if firstPass: 
+			if firstPass:
+				if  numSentWords == 0:
+					continue
+
 				minSentLength = numSentWords
 				maxSentLength = numSentWords
 				firstPass = 0
 			elif numSentWords < minSentLength: 
+				if  numSentWords == 0:
+					continue
+
 				minSentLength = numSentWords
 			elif numSentWords > maxSentLength: 
+				if  numSentWords == 0:
+					continue
+
 				maxSentLength = numSentWords
 	catStat.close()
 	meanSentLength = wordCount/sentCount
 	varSentLength = (wordCountSquared/sentCount) - (meanSentLength**2)
 	stdSentLength = np.float32(np.sqrt(varSentLength))
-	numUniqueWords = len(vocab.get_feature_names())
+	# input("vocab: " + str(vocab))
+	# numUniqueWords = len(vocab.get_feature_names())
+	numUniqueWords = len(vocab)
 
 	stats = [docCount, sentCount, wordCount, numUniqueWords, meanSentLength, minSentLength, maxSentLength, stdSentLength]
 	
@@ -170,17 +185,64 @@ def docStats(data, vocab, cat):
 	return stats
 
 
+def createDoc2VecModel(data):
+	tagged_data = [TaggedDocument(words=word_tokenize(_d.lower()), tags=[str(i)]) for i, _d in enumerate(data)]
+
+	# print("tagged_data: \n" + str(tagged_data))	
+
+	max_epochs = 100;
+	vec_size = 20
+	alpha = .025
+	
+	model = Doc2Vec(size=vec_size,
+			alpha=alpha,
+			min_alpha=.00025,
+			min_count = 1,
+			dm=1)
+
+	model.build_vocab(tagged_data)
+
+	for epoch in range(max_epochs):
+		print('iteration {0}'.format(epoch))
+		model.train(tagged_data,
+			total_examples=model.corpus_count,
+			epochs=model.iter)
+
+		# decrease learning rate
+		model.alpha -= .0002
+		# fix the learning rate, no decay
+		model.min_alpha = model.alpha
+	model.save("d2v.model")
+	print("Model saved...")
+
+	return
 
 
 if __name__ == '__main__':
 	cats = ["comp.windows.x", "comp.os.ms-windows.misc", "talk.politics.misc", "comp.sys.ibm.pc.hardware","talk.religion.misc","rec.autos","sci.space","talk.politics.guns","alt.atheism","misc.forsale","comp.graphics","sci.electronics","sci.crypt","soc.religion.christian","rec.sport.hockey","sci.med","rec.motorcycles","comp.sys.mac.hardware","talk.politics.mideast","rec.sport.baseball"];
 	subcats = ["comp.windows.x", "sci.med", "rec.sport.hockey", "soc.religion.christian"]
-	# Do all at once
-	twentyNewsTrain = fetch_20newsgroups(subset='train', categories= cats, shuffle=True, random_state=42, remove=('headers'))
-	# twentyNewsTrain = fetch_20newsgroups(subset='train', categories= cats, shuffle=True, random_state=42)
-	corpora, vocabulary = preprocess(twentyNewsTrain.data, "sci.med", False)
-	# stats = docStats(twentyNewsTrain.data, processedVocab, "total")
+	
+	# Gather category specific document statistics
+	f = open("./docStats.txt", 'w')
+	f.write("category, docCount, sentCount, wordCount, numUniqueWords, meanSentLength, minSentLength, maxSentLength, stdSentLength\n")
+	for entry in subcats:
+		
+		catStats = fetch_20newsgroups(subset='train', categories= [entry], shuffle=True, random_state=42)
+		corp, vocab = preprocess(catStats.data[0:5], entry, False)
 
+		stats = docStats(catStats.data, vocab, entry)
+		f.write(str(entry) + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
+		print(str(entry) + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
+
+	# Do all at once
+	twentyNewsTrain = fetch_20newsgroups(subset='train', categories= subcats, shuffle=True, random_state=42, remove=('headers'))
+	# twentyNewsTrain = fetch_20newsgroups(subset='train', categories= cats, shuffle=True, random_state=42)
+	corpora, vocabulary = preprocess(twentyNewsTrain.data[0:5], subcats, False)
+	stats = docStats(twentyNewsTrain.data, vocabulary, "total")
+	
+	f.write(str("total") + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
+	print(str("total") + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
+	f.close()
 
 	# print(corpora)
 	# print(vocabulary)
@@ -202,7 +264,7 @@ if __name__ == '__main__':
 
 	# print(str(vocabDict))
 	# print(corpora)
-	lda = LdaModel(newCorp, id2word=docVocabDict, num_topics=20, chunksize=100, random_state=100, update_every=1, alpha='auto', passes=10, per_word_topics=True)
+	lda = LdaModel(newCorp, id2word=docVocabDict, num_topics=len(subcats), chunksize=100, random_state=100, update_every=1, alpha='auto', passes=10, per_word_topics=True)
 
 	for thing in lda.print_topics():
 		print(thing)
@@ -216,32 +278,8 @@ if __name__ == '__main__':
 	vis = pyLDAvis.gensim.prepare(lda, newCorp, docVocabDict)
 	pyLDAvis.save_html(vis, 'LDA_Visualization.html')
 
-
-	''' # Gather category specific document statistics
-	f = open("./docStats.txt", 'w')
-	f.write("category, docCount, sentCount, wordCount, numUniqueWords, meanSentLength, minSentLength, maxSentLength, stdSentLength\n")
-	for entry in cats:
-		
-		twentyNewsTrain = fetch_20newsgroups(subset='train', categories= [entry], shuffle=True, random_state=42)
-		ignored_indices, processedVocab, processedWeights = preprocess(twentyNewsTrain.data, entry, False)
-
-		stats = docStats(twentyNewsTrain.data, processedVocab, f, entry)
-		f.write(str(cat) + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
-	f.close()
-	'''
-
-	''' # Gather data for box-plot visualization
-	# f = open("./docStats.txt", 'w')
-	# f.write("category, docCount, sentCount, wordCount, numUniqueWords, meanSentLength, minSentLength, maxSentLength, stdSentLength\n")
-	for entry in cats:
-		
-		twentyNewsTrain = fetch_20newsgroups(subset='train', categories= [entry], shuffle=True, random_state=42)
-		ignored_indices, processedVocab, processedWeights = preprocess(twentyNewsTrain.data, False)
-
-		stats = docStats(twentyNewsTrain.data, processedVocab, entry)
-		# f.write(str(cat) + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
-	# f.close()
-	'''
+	# Word 2 Vec work
+	createDoc2VecModel(twentyNewsTrain.data[0:5])
 	
 
 
