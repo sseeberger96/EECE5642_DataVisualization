@@ -281,23 +281,24 @@ if __name__ == '__main__':
 	''' # Gather category specific document statistics
 	f = open("./docStats.txt", 'w')
 	f.write("category, docCount, sentCount, wordCount, numUniqueWords, meanSentLength, minSentLength, maxSentLength, stdSentLength\n")
-	for entry in subcats:
+	for entry in cats:
 		
 		catStats = fetch_20newsgroups(subset='train', categories= [entry], shuffle=True, random_state=42)
-		corp, vocab = preprocess(catStats.data[0:5], entry, False)
+		corp, vocab = preprocess(catStats.data, entry, False)
 
 		stats = docStats(catStats.data, vocab, entry)
 		f.write(str(entry) + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
 		print(str(entry) + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
 	'''
+
 	# Do all at once
 	twentyNewsTrain = fetch_20newsgroups(subset='train', categories= subcats, shuffle=True, random_state=42, remove=('headers'))
 	# twentyNewsTrain = fetch_20newsgroups(subset='train', categories= cats, shuffle=True, random_state=42)
 	corpora, vocabulary = preprocess(twentyNewsTrain.data[0:5], subcats, False)
-	# stats = docStats(twentyNewsTrain.data, vocabulary, "total")
+	stats = docStats(twentyNewsTrain.data, vocabulary, "total")
 	
 	# f.write(str("total") + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
-	# print(str("total") + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
+	print(str("total") + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
 	# f.close()
 
 	# print(corpora)
@@ -320,7 +321,7 @@ if __name__ == '__main__':
 
 	# print(str(vocabDict))
 	# print(corpora)
-	lda = LdaModel(newCorp, id2word=docVocabDict, num_topics=len(subcats), chunksize=100, random_state=100, update_every=1, alpha='auto', passes=10, per_word_topics=True)
+	lda = LdaModel(newCorp, id2word=docVocabDict, num_topics=len(cats), chunksize=100, random_state=100, update_every=1, alpha='auto', passes=10, per_word_topics=True)
 
 	for thing in lda.print_topics():
 		print(thing)
@@ -333,7 +334,8 @@ if __name__ == '__main__':
 
 	vis = pyLDAvis.gensim.prepare(lda, newCorp, docVocabDict)
 	pyLDAvis.save_html(vis, 'LDA_Visualization.html')
-	'''
+	input("press any key to continue...");
+	''' 
 
 	# Doc 2 Vec work
 	# createDoc2VecModel(twentyNewsTrain.data[0:5])
@@ -357,23 +359,29 @@ if __name__ == '__main__':
 	
 
 	# word 2 vec work
-	createWord2VecModel(twentyNewsTrain.data);
+	# createWord2VecModel(twentyNewsTrain.data);
 	
 	# load model
 	model = Word2Vec.load('model.bin')
-	print(model)
+	# print(model)
 
-	# displayWord2Vec(model);
+	displayWord2Vec(model);
+	# input("press any key to continue...")
 
 	# keyed vector work
 	# from: https://machinelearningmastery.com/develop-word-embeddings-python-gensim/ 
 	filename = "./model.bin"
-	#try:
 	m = KeyedVectors.load(filename)
-	result = m.most_similar(positive=['woman', 'king'], negative=['man'], topn=1)
-	print(result)
-	#except UnicodeDecodeError:
-		#print("The sentences need to be preprocessed...")
+
+	while True:
+		try:
+			pos = input("positive: ").split(" ")
+			neg = input("negative: ").split(" ")
+			result = m.most_similar(positive=pos, negative=neg, topn=5)
+			print(result)
+		except KeyError:
+			print("Not in vocab...")
+			continue
 	
 	
 
