@@ -82,7 +82,7 @@ class LemmaTokenizer(object):
 
 
 def tryWord(word):
-	if not wordnet.synsets(word):
+	if not wn.synsets(word):
 		return False
 	else:
 		return True
@@ -233,7 +233,17 @@ def createWord2VecModel(data):
 	idx = 0;	
 	for item in things:
 		for doc in things[idx]:
-			sentences.append(doc.split(" "))
+			arr = []			
+			word_arr = doc.split(" ")
+			for word in word_arr:
+				# input(word)
+				if tryWord(word):
+					#print(True)
+					arr.append(word)
+				else:
+					continue
+					#print(False)	
+			sentences.append(arr)
 		idx = idx + 1;
 
 	# input(sentences)
@@ -347,7 +357,7 @@ if __name__ == '__main__':
 	
 
 	# word 2 vec work
-	# createWord2VecModel(twentyNewsTrain.data);
+	createWord2VecModel(twentyNewsTrain.data);
 	
 	# load model
 	model = Word2Vec.load('model.bin')
@@ -357,15 +367,15 @@ if __name__ == '__main__':
 
 	# keyed vector work
 	# from: https://machinelearningmastery.com/develop-word-embeddings-python-gensim/ 
-	filename = 'model.bin'
-	try:
-		model = KeyedVectors.load_word2vec_format(filename, binary=True)
-		result = model.most_similar(positive=['woman', 'king'], negative=['man'], topn=1)
-		print(result)
-	except UnicodeDecodeError:
-		print("The sentences need to be preprocessed...")
+	filename = "./model.bin"
+	#try:
+	m = KeyedVectors.load(filename)
+	result = m.most_similar(positive=['woman', 'king'], negative=['man'], topn=1)
+	print(result)
+	#except UnicodeDecodeError:
+		#print("The sentences need to be preprocessed...")
 	
-
+	
 
 
 
