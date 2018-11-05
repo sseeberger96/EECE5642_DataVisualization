@@ -217,12 +217,14 @@ def createDoc2VecModel(data):
 
 	return
 
+def loadDoc2VecModel():
+	return Doc2Vec.load('d2v.model.bak')
 
 if __name__ == '__main__':
 	cats = ["comp.windows.x", "comp.os.ms-windows.misc", "talk.politics.misc", "comp.sys.ibm.pc.hardware","talk.religion.misc","rec.autos","sci.space","talk.politics.guns","alt.atheism","misc.forsale","comp.graphics","sci.electronics","sci.crypt","soc.religion.christian","rec.sport.hockey","sci.med","rec.motorcycles","comp.sys.mac.hardware","talk.politics.mideast","rec.sport.baseball"];
 	subcats = ["comp.windows.x", "sci.med", "rec.sport.hockey", "soc.religion.christian"]
 	
-	# Gather category specific document statistics
+	''' # Gather category specific document statistics
 	f = open("./docStats.txt", 'w')
 	f.write("category, docCount, sentCount, wordCount, numUniqueWords, meanSentLength, minSentLength, maxSentLength, stdSentLength\n")
 	for entry in subcats:
@@ -233,16 +235,16 @@ if __name__ == '__main__':
 		stats = docStats(catStats.data, vocab, entry)
 		f.write(str(entry) + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
 		print(str(entry) + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
-
+	'''
 	# Do all at once
 	twentyNewsTrain = fetch_20newsgroups(subset='train', categories= subcats, shuffle=True, random_state=42, remove=('headers'))
 	# twentyNewsTrain = fetch_20newsgroups(subset='train', categories= cats, shuffle=True, random_state=42)
-	corpora, vocabulary = preprocess(twentyNewsTrain.data[0:5], subcats, False)
+	corpora, vocabulary = preprocess(twentyNewsTrain.data, subcats, False)
 	stats = docStats(twentyNewsTrain.data, vocabulary, "total")
 	
-	f.write(str("total") + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
+	# f.write(str("total") + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
 	print(str("total") + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
-	f.close()
+	# f.close()
 
 	# print(corpora)
 	# print(vocabulary)
@@ -279,8 +281,31 @@ if __name__ == '__main__':
 	pyLDAvis.save_html(vis, 'LDA_Visualization.html')
 
 	# Word 2 Vec work
-	createDoc2VecModel(twentyNewsTrain.data[0:5])
-	
+	# createDoc2VecModel(twentyNewsTrain.data[0:5])
+	doc2VecModel = loadDoc2VecModel();
+
+	sims = doc2VecModel.docvecs.most_similar(99)
+
+	print(sims)
+
+	print(doc2VecModel.doesnt_match("halloween costume devil party  scarf".split()))
+	print(doc2VecModel.doesnt_match("black blue yellow shirt navy black green orange".split()))
+	print(doc2VecModel.doesnt_match("summer winter fall t-shirt spring hot cold".split()))
+	print(doc2VecModel.doesnt_match("straight slim fit custom regular winter".split()))
+
+
+	print(doc2VecModel.most_similar(positive=['boy', 'king'], negative=['girl']))
+	print(doc2VecModel.most_similar(positive=['blue', 'shirt'], negative=['blue']))
+	print(doc2VecModel.most_similar(positive=['calvin', 'klein'], negative=['tommy']))
+	# print(doc2VecModel.most_similar(positive=['cotton', 'material'], negative=['polyester']))
+	# print(doc2VecModel.most_similar(positive=['nike', 'run'], negative=['express']))
+
+
+
+	# print(doc2VecModel.most_similar_cosmul(positive=['calvin', 'klein'], negative=['tommy']) )
+	# print(doc2VecModel.most_similar_cosmul(positive=['skinny', 'jean'], negative=['large']) )
+	# print(doc2VecModel.most_similar_cosmul(positive=['black', 'dress'], negative=['navy']) )
+	# print(doc2VecModel.most_similar_cosmul(positive=['blue', 'coat'], negative=['yellow']) )
 
 
 
