@@ -23,6 +23,11 @@ from gensim.models import CoherenceModel
 from gensim.test.utils import common_texts
 
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
+from gensim.models import Word2Vec
+from gensim.models import KeyedVectors
+
+# sklearn stuff
+from sklearn.decomposition import PCA
 
 # Plotting tools
 import pyLDAvis
@@ -188,7 +193,7 @@ def docStats(data, vocab, cat):
 def createDoc2VecModel(data):
 	tagged_data = [TaggedDocument(words=word_tokenize(_d.lower()), tags=[str(i)]) for i, _d in enumerate(data)]
 
-	# print("tagged_data: \n" + str(tagged_data))	
+	print("tagged_data: \n" + str(tagged_data))
 
 	max_epochs = 100;
 	vec_size = 20
@@ -220,6 +225,45 @@ def createDoc2VecModel(data):
 def loadDoc2VecModel():
 	return Doc2Vec.load('d2v.model.bak')
 
+def createWord2VecModel(data):
+	things = []
+	sentences = []
+	for doc in twentyNewsTrain.data:
+		things.append(doc.split(". "))
+	idx = 0;	
+	for item in things:
+		for doc in things[idx]:
+			sentences.append(doc.split(" "))
+		idx = idx + 1;
+
+	# input(sentences)
+
+	# train model
+	model = Word2Vec(sentences, min_count=1)
+	# summarize the loaded model
+	# print(model)
+	# summarize vocabulary
+	words = list(model.wv.vocab)
+	# print(words)
+	# access vector for one word
+	# print(model['sentence'])
+	# save model
+	model.save('model.bin')
+	return
+
+def displayWord2Vec(model):
+	# fit a 2d PCA model to the vectors
+	X = model[model.wv.vocab]
+	pca = PCA(n_components=2)
+	result = pca.fit_transform(X)
+	# create a scatter plot of the projection
+	plt.scatter(result[:, 0], result[:, 1])
+	words = list(model.wv.vocab)
+	for i, word in enumerate(words):
+		plt.annotate(word, xy=(result[i, 0], result[i, 1]))
+	plt.show()
+	return
+
 if __name__ == '__main__':
 	cats = ["comp.windows.x", "comp.os.ms-windows.misc", "talk.politics.misc", "comp.sys.ibm.pc.hardware","talk.religion.misc","rec.autos","sci.space","talk.politics.guns","alt.atheism","misc.forsale","comp.graphics","sci.electronics","sci.crypt","soc.religion.christian","rec.sport.hockey","sci.med","rec.motorcycles","comp.sys.mac.hardware","talk.politics.mideast","rec.sport.baseball"];
 	subcats = ["comp.windows.x", "sci.med", "rec.sport.hockey", "soc.religion.christian"]
@@ -239,11 +283,11 @@ if __name__ == '__main__':
 	# Do all at once
 	twentyNewsTrain = fetch_20newsgroups(subset='train', categories= subcats, shuffle=True, random_state=42, remove=('headers'))
 	# twentyNewsTrain = fetch_20newsgroups(subset='train', categories= cats, shuffle=True, random_state=42)
-	corpora, vocabulary = preprocess(twentyNewsTrain.data, subcats, False)
-	stats = docStats(twentyNewsTrain.data, vocabulary, "total")
+	corpora, vocabulary = preprocess(twentyNewsTrain.data[0:5], subcats, False)
+	# stats = docStats(twentyNewsTrain.data, vocabulary, "total")
 	
 	# f.write(str("total") + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
-	print(str("total") + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
+	# print(str("total") + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
 	# f.close()
 
 	# print(corpora)
@@ -260,7 +304,7 @@ if __name__ == '__main__':
 	docVocabDict = Dictionary(vocabByDoc)
 	# print(docVocabDict)
 	
-
+	''' # LDA Work
 	newCorp = [docVocabDict.doc2bow(text) for text in vocabByDoc]
 	# print(newCorp)
 
@@ -279,11 +323,13 @@ if __name__ == '__main__':
 
 	vis = pyLDAvis.gensim.prepare(lda, newCorp, docVocabDict)
 	pyLDAvis.save_html(vis, 'LDA_Visualization.html')
+	'''
 
-	# Word 2 Vec work
+	# Doc 2 Vec work
 	# createDoc2VecModel(twentyNewsTrain.data[0:5])
-	doc2VecModel = loadDoc2VecModel();
+	# doc2VecModel = loadDoc2VecModel();
 
+	''' Using Doc 2 Vec model
 	sims = doc2VecModel.docvecs.most_similar(99)
 
 	print(sims)
@@ -297,15 +343,28 @@ if __name__ == '__main__':
 	print(doc2VecModel.most_similar(positive=['boy', 'king'], negative=['girl']))
 	print(doc2VecModel.most_similar(positive=['blue', 'shirt'], negative=['blue']))
 	print(doc2VecModel.most_similar(positive=['calvin', 'klein'], negative=['tommy']))
-	# print(doc2VecModel.most_similar(positive=['cotton', 'material'], negative=['polyester']))
-	# print(doc2VecModel.most_similar(positive=['nike', 'run'], negative=['express']))
+	'''
+	
 
+	# word 2 vec work
+	# createWord2VecModel(twentyNewsTrain.data);
+	
+	# load model
+	model = Word2Vec.load('model.bin')
+	print(model)
 
+	# displayWord2Vec(model);
 
-	# print(doc2VecModel.most_similar_cosmul(positive=['calvin', 'klein'], negative=['tommy']) )
-	# print(doc2VecModel.most_similar_cosmul(positive=['skinny', 'jean'], negative=['large']) )
-	# print(doc2VecModel.most_similar_cosmul(positive=['black', 'dress'], negative=['navy']) )
-	# print(doc2VecModel.most_similar_cosmul(positive=['blue', 'coat'], negative=['yellow']) )
+	# keyed vector work
+	# from: https://machinelearningmastery.com/develop-word-embeddings-python-gensim/ 
+	filename = 'model.bin'
+	try:
+		model = KeyedVectors.load_word2vec_format(filename, binary=True)
+		result = model.most_similar(positive=['woman', 'king'], negative=['man'], topn=1)
+		print(result)
+	except UnicodeDecodeError:
+		print("The sentences need to be preprocessed...")
+	
 
 
 
