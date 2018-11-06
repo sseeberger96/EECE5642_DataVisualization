@@ -41,8 +41,9 @@ from sklearn.decomposition import PCA
 # Plotting tools
 import pyLDAvis
 import pyLDAvis.gensim
+import pyLDAvis.sklearn
 import matplotlib
-# matplotlib.use("TkAgg")
+matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
 # %matplotlib inline
 
@@ -74,7 +75,10 @@ contractions = ["n't", "'ll", "'re", "'ve", "'s", "'m", "'d", "\'s", "\'t", "\'a
 
 corpusSpecificStopwords = ['subject', '--', 'you', "\'\'", "``", "...", 'would', 'use', 'get', 'know', 'article', 'line', 'one', 'also', 'nntp-posting-host', 'reply-to', 
 							'organization', 'wa', 'ha', 'write', 'could', 'doe', "\\/", 'hello', 'edu', 'cc', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 
-							'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
+							'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'ax', 'max', 'like', 'say', 'thanks', 'think', 'see', 'need', 'make', 
+							'want', 'help', 'thing', 'come', 'may', 'many', 'people', 'time', 'go', 'take', 'well', 'even', 'good', 'right', 'much', 'way', 'year', 'try', 
+							'work', 'going', 'really', 'seem', 'new', 'back', 'problem', 'two', 'look', 'mean', 'tell', 'sure', 'day', 'question', 'case', 'still', 'first'
+							'please', 'give', 'maybe']
 tfidfThreshold = 0
 
 class customTokenizer(object):
@@ -124,39 +128,42 @@ def preprocess(data, cat, PRINT):
 	countVect = CountVectorizer(tokenizer=customTokenizer())
 	termMatrixSparse = countVect.fit_transform(data)
 
-	# lda = LatentDirichletAllocation(n_components=20, max_iter=10, learning_method='online', learning_offset=50.,random_state=0).fit(termMatrixSparse)
-	# display_topics(lda, countVect.get_feature_names(), 10)
+	lda = LatentDirichletAllocation(n_components=20, max_iter=15, learning_method='online',random_state=0).fit(termMatrixSparse)
+	display_topics(lda, countVect.get_feature_names(), 10)
+
+	vis = pyLDAvis.sklearn.prepare(lda, termMatrixSparse, countVect)
+	pyLDAvis.save_html(vis, 'LDA_Visualization_sk.html')
 
 
 	
-	tfidfTrans = TfidfTransformer(smooth_idf = False)
-	tfidfMatrix = tfidfTrans.fit_transform(termMatrixSparse)
+	# tfidfTrans = TfidfTransformer(smooth_idf = False)
+	# tfidfMatrix = tfidfTrans.fit_transform(termMatrixSparse)
 
-	# Thresholding to get rid of unimportant words
-	meanWordWeights = np.mean(tfidfMatrix.A, axis=0)
-	passingIndices = meanWordWeights > tfidfThreshold
+	# # Thresholding to get rid of unimportant words
+	# meanWordWeights = np.mean(tfidfMatrix.A, axis=0)
+	# passingIndices = meanWordWeights > tfidfThreshold
 
-	newVocabulary = np.array(countVect.get_feature_names())
-	# print(newVocabulary)
-	newVocabulary = newVocabulary[passingIndices]
-	termMatrix = termMatrixSparse.toarray()
-	termMatrix = termMatrix[:,passingIndices]
+	# newVocabulary = np.array(countVect.get_feature_names())
+	# # print(newVocabulary)
+	# newVocabulary = newVocabulary[passingIndices]
+	# termMatrix = termMatrixSparse.toarray()
+	# termMatrix = termMatrix[:,passingIndices]
 
-	vocabDict = {};
-	index = 0;
-	for word in newVocabulary:
-		vocabDict[index] = word;
-		index = index + 1;
+	# vocabDict = {};
+	# index = 0;
+	# for word in newVocabulary:
+	# 	vocabDict[index] = word;
+	# 	index = index + 1;
 
-	corp = []
-	for doc in termMatrix:
-		docWords = []
-		index = 0
-		for word in doc: 
-			if word != 0: 
-				docWords.append((index, word))
-			index += 1
-		corp.append(docWords)
+	# corp = []
+	# for doc in termMatrix:
+	# 	docWords = []
+	# 	index = 0
+	# 	for word in doc: 
+	# 		if word != 0: 
+	# 			docWords.append((index, word))
+	# 		index += 1
+	# 	corp.append(docWords)
 
 	
 	if PRINT == True:
@@ -475,7 +482,7 @@ if __name__ == '__main__':
 
 	idx = 0
 	for doc in twentyNewsTrain.data: 
-		print(float(idx / len(twentyNewsTrain.data) * 100))
+		# print(float(idx / len(twentyNewsTrain.data) * 100))
 		docTokens = customPreprocessor(lem, doc)
 		fullVocab.append(docTokens)
 		kmeansDocs.append(" ".join(docTokens))
@@ -484,7 +491,7 @@ if __name__ == '__main__':
 	# input("doc_tokens: \n" + str(docTokens))
 	
 	# input("kmeans vocab: \n" + str(kmeansDocs))
-	kmeans(kmeansDocs[0:100]);
+	# kmeans(kmeansDocs[0:100]);
 
 	docVocabDict = Dictionary(fullVocab)
 
