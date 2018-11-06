@@ -18,6 +18,7 @@ import matplotlib as mpl
 
 from sklearn.manifold import MDS
 
+import plotly
 import plotly.plotly as py
 import plotly.graph_objs as go
 
@@ -240,7 +241,7 @@ layout = dict(title = 'Styled Scatter',
              )
 
 fig = dict(data=data, layout=layout)
-py.iplot(fig, filename='kmeans')
+plotly.offline.plot(fig, filename='kmeans')
 
 
 ''' Plot with matplotlib
