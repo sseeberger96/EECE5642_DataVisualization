@@ -7,6 +7,7 @@ from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.decomposition import NMF, LatentDirichletAllocation
+from sklearn.cluster import KMeans
 
 # NLTK
 from nltk import word_tokenize, sent_tokenize, regexp_tokenize
@@ -72,12 +73,6 @@ def customPreprocessor(lem, doc):
 			if not token in contractions:
 				if not token.isdigit():
 					if not wn.synsets(token): 
-						'''
-						tokLem = self.lem.lemmatize(token)
-						if not tokLem in stopWords: 
-							if not tokLem in corpusSpecificStopwords:
-								tokens += [tokLem]
-						'''
 						pass
 					else: 
 						p = wn.synsets(token)[0].pos()
@@ -323,6 +318,7 @@ def makeLDA(data):
 
 if __name__ == '__main__':
 	cats = ["comp.windows.x", "comp.os.ms-windows.misc", "talk.politics.misc", "comp.sys.ibm.pc.hardware","talk.religion.misc","rec.autos","sci.space","talk.politics.guns","alt.atheism","misc.forsale","comp.graphics","sci.electronics","sci.crypt","soc.religion.christian","rec.sport.hockey","sci.med","rec.motorcycles","comp.sys.mac.hardware","talk.politics.mideast","rec.sport.baseball"];
+	catsDescription = ["Alt - Atheism", "Computer - Graphics", "Computer - Microsoft/Windows", "Computer - IBM/PC", "Computer - Mac", "Computer - Windows", "Misc. - For Sale", "Rec. - Autos", "Rec - Motorcycles", "Sports - Baseball", "Sports - Hockey", "Science - Cryptography", "Science - Electronics", "Science - Medicine", "Science - Space", "Religion - Christianity", "Politics - Guns", "Politics - Middle East", "Politics - Misc.", "Religion - Misc."]
 	subcats = ["comp.windows.x", "sci.med", "rec.sport.hockey", "soc.religion.christian"]
 	
 	''' # Gather category specific document statistics
@@ -337,10 +333,49 @@ if __name__ == '__main__':
 		f.write(str(entry) + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
 		print(str(entry) + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
 	'''
-
 	# Do all at once
 	twentyNewsTrain = fetch_20newsgroups(subset='train', categories= cats, shuffle=True, random_state=42, remove=('headers'))
+	# print(twentyNewsTrain.target[0:5])
 
+	fullVocab = []
+	lem = WordNetLemmatizer()
+	for doc in twentyNewsTrain.data: 
+		docTokens = customPreprocessor(lem, doc)
+		fullVocab.append(docTokens)
+
+	docVocabDict = Dictionary(fullVocab)
+
+	corp = [docVocabDict.doc2bow(text) for text in fullVocab]
+
+	documents = [TaggedDocument(doc, [i]) for i, doc in enumerate(fullVocab)]
+	model = Doc2Vec(documents, vector_size=20, min_count=1, workers=4)
+	# print(model.docvecs.vectors_docs)
+
+	X = model.docvecs.vectors_docs
+	pca = PCA(n_components=2)
+	result = pca.fit_transform(X)
+	# create a scatter plot of the projection 
+	print(twentyNewsTrain.target[0:20])
+	print(twentyNewsTrain.filenames[0:20])
+	for i in range(20):
+		indices = [j for j, x in enumerate(twentyNewsTrain.target) if x == i]
+		plt.scatter(result[indices, 0], result[indices, 1], label=catsDescription[i])
+	# words = list(model.wv.vocab)
+	# for i, word in enumerate(words):
+	# 	plt.annotate(word, xy=(result[i, 0], result[i, 1]))
+	plt.legend()
+	plt.show()
+
+	kmeans_model = KMeans(n_clusters=20, init='k-means++', max_iter=100)
+	X = kmeans_model.fit(model.docvecs.doctag_syn0)
+	labels=kmeans_model.labels_.tolist()
+
+	l = kmeans_model.fit_predict(model.docvecs.doctag_syn0)
+	pca = PCA(n_components=2).fit(model.docvecs.doctag_syn0)
+	datapoint = pca.transform(model.docvecs.doctag_syn0)
+	plt.figure
+	plt.scatter(datapoint[:, 0], datapoint[:, 1], c=labels)
+	plt.show()
 
 
 
@@ -366,7 +401,7 @@ if __name__ == '__main__':
 	
 	# newCorp = [docVocabDict.doc2bow(text) for text in vocabByDoc]
 
-	makeLDA(twentyNewsTrain.data)
+	# makeLDA(twentyNewsTrain.data)
 	
 	
 	
