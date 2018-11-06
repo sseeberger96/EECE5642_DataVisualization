@@ -6,6 +6,7 @@ import numpy as np
 from sklearn.datasets import fetch_20newsgroups 
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn.decomposition import NMF, LatentDirichletAllocation
 
 # NLTK
 from nltk import word_tokenize, sent_tokenize, regexp_tokenize
@@ -32,7 +33,9 @@ from sklearn.decomposition import PCA
 # Plotting tools
 import pyLDAvis
 import pyLDAvis.gensim
-import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("TkAgg")
+from matplotlib import pyplot as plt
 # %matplotlib inline
 
 # Warnings
@@ -51,33 +54,39 @@ corpusSpecificStopwords = ['subject', '--', 'you', "\'\'", "``", "...", 'would',
 							'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
 tfidfThreshold = 0
 
-class LemmaTokenizer(object):
+class customTokenizer(object):
 	def __init__(self):
 		self.lem = WordNetLemmatizer()
 	def __call__(self, doc):
-		tokens = []
-		stopWords = set(stopwords.words('english')) 
-
-		for token in regexp_tokenize(doc, pattern=r'\w+'):
-			if string.punctuation.find(token) == -1: 
-				if not token in contractions:
-					if not token.isdigit():
-						if not wn.synsets(token): 
-							'''
-							tokLem = self.lem.lemmatize(token)
-							if not tokLem in stopWords: 
-								if not tokLem in corpusSpecificStopwords:
-									tokens += [tokLem]
-							'''
-							pass
-						else: 
-							p = wn.synsets(token)[0].pos()
-							tokLem = self.lem.lemmatize(token, pos=p)
-							if not tokLem in stopWords: 
-								if not tokLem in corpusSpecificStopwords:
-									tokens += [tokLem]
-
+		tokens = customPreprocessor(self.lem, doc)
 		return tokens
+
+
+def customPreprocessor(lem, doc):
+	tokens = []
+	stopWords = set(stopwords.words('english')) 
+
+	for token in regexp_tokenize(doc, pattern=r'\w+'):
+		token = token.lower()
+		if string.punctuation.find(token) == -1: 
+			if not token in contractions:
+				if not token.isdigit():
+					if not wn.synsets(token): 
+						'''
+						tokLem = self.lem.lemmatize(token)
+						if not tokLem in stopWords: 
+							if not tokLem in corpusSpecificStopwords:
+								tokens += [tokLem]
+						'''
+						pass
+					else: 
+						p = wn.synsets(token)[0].pos()
+						tokLem = lem.lemmatize(token, pos=p)
+						if not tokLem in stopWords: 
+							if not tokLem in corpusSpecificStopwords:
+								tokens += [tokLem]
+
+	return tokens
 
 
 
@@ -87,10 +96,21 @@ def tryWord(word):
 	else:
 		return True
 
+def display_topics(model, feature_names, no_top_words):
+    for topic_idx, topic in enumerate(model.components_):
+        print("Topic %d:" % (topic_idx))
+        print(" ".join([feature_names[i]
+                        for i in topic.argsort()[:-no_top_words - 1:-1]]))
+
 
 def preprocess(data, cat, PRINT): 
-	countVect = CountVectorizer(tokenizer=LemmaTokenizer())
+	countVect = CountVectorizer(tokenizer=customTokenizer())
 	termMatrixSparse = countVect.fit_transform(data)
+
+	# lda = LatentDirichletAllocation(n_components=20, max_iter=10, learning_method='online', learning_offset=50.,random_state=0).fit(termMatrixSparse)
+	# display_topics(lda, countVect.get_feature_names(), 10)
+
+
 	
 	tfidfTrans = TfidfTransformer(smooth_idf = False)
 	tfidfMatrix = tfidfTrans.fit_transform(termMatrixSparse)
@@ -147,7 +167,7 @@ def docStats(data, vocab, cat):
 	minSentLength = None
 	maxSentLength = None
 
-	tokenize = LemmaTokenizer()
+	tokenize = customTokenizer()
 	catStat = open(str(cat).replace(".","_") + ".txt", 'w')
 	catStat.write(str("data") + str("\n"))
 	for doc in data: 
@@ -274,6 +294,33 @@ def displayWord2Vec(model):
 	plt.show()
 	return
 
+def makeLDA(data):
+
+	fullVocab = []
+	lem = WordNetLemmatizer()
+	for doc in data: 
+		docTokens = customPreprocessor(lem, doc)
+		fullVocab.append(docTokens)
+
+	docVocabDict = Dictionary(fullVocab)
+
+	corp = [docVocabDict.doc2bow(text) for text in fullVocab]
+
+	lda = LdaModel(corp, id2word=docVocabDict, num_topics=20, chunksize=100, random_state=100, update_every=1, alpha='auto', passes=10, per_word_topics=True)
+
+	for thing in lda.print_topics():
+		print(thing)
+
+	print('\nPerplexity: ', lda.log_perplexity(corp))
+	coherence_model_lda = CoherenceModel(model=lda, texts=fullVocab, dictionary=docVocabDict, coherence='c_v')
+	coherence_lda = coherence_model_lda.get_coherence()
+	print('\nCoherence Score: ', coherence_lda)
+
+
+	vis = pyLDAvis.gensim.prepare(lda, corp, docVocabDict)
+	pyLDAvis.save_html(vis, 'LDA_Visualization.html')
+
+
 if __name__ == '__main__':
 	cats = ["comp.windows.x", "comp.os.ms-windows.misc", "talk.politics.misc", "comp.sys.ibm.pc.hardware","talk.religion.misc","rec.autos","sci.space","talk.politics.guns","alt.atheism","misc.forsale","comp.graphics","sci.electronics","sci.crypt","soc.religion.christian","rec.sport.hockey","sci.med","rec.motorcycles","comp.sys.mac.hardware","talk.politics.mideast","rec.sport.baseball"];
 	subcats = ["comp.windows.x", "sci.med", "rec.sport.hockey", "soc.religion.christian"]
@@ -292,50 +339,37 @@ if __name__ == '__main__':
 	'''
 
 	# Do all at once
-	twentyNewsTrain = fetch_20newsgroups(subset='train', categories= subcats, shuffle=True, random_state=42, remove=('headers'))
-	# twentyNewsTrain = fetch_20newsgroups(subset='train', categories= cats, shuffle=True, random_state=42)
-	corpora, vocabulary = preprocess(twentyNewsTrain.data[0:5], subcats, False)
-	stats = docStats(twentyNewsTrain.data, vocabulary, "total")
-	
-	# f.write(str("total") + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
-	print(str("total") + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
-	# f.close()
+	twentyNewsTrain = fetch_20newsgroups(subset='train', categories= cats, shuffle=True, random_state=42, remove=('headers'))
 
-	# print(corpora)
-	# print(vocabulary)
-	vocabByDoc = []
-	for doc in corpora:
-		wordsInDoc = []
-		# print(doc)
-		for word in doc: 
-			for freq in range(word[1]):
-				wordsInDoc.append(vocabulary[word[0]])
-		vocabByDoc.append(wordsInDoc)
-	# print(vocabByDoc)
-	docVocabDict = Dictionary(vocabByDoc)
+
+
+
+	# corpora, vocabulary = preprocess(twentyNewsTrain.data, subcats, False)
+	# stats = docStats(twentyNewsTrain.data, vocabulary, "total")
+	
+	# # f.write(str("total") + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
+	# print(str("total") + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
+	# # f.close()
+
+	# LDA Work
+	# vocabByDoc = []
+	# for doc in corpora:
+	# 	wordsInDoc = []
+	# 	# print(doc)
+	# 	for word in doc: 
+	# 		for freq in range(word[1]):
+	# 			wordsInDoc.append(vocabulary[word[0]])
+	# 	vocabByDoc.append(wordsInDoc)
+	# # print(vocabByDoc)
+	# docVocabDict = Dictionary(vocabByDoc)
 	# print(docVocabDict)
 	
-	''' # LDA Work
-	newCorp = [docVocabDict.doc2bow(text) for text in vocabByDoc]
-	# print(newCorp)
+	# newCorp = [docVocabDict.doc2bow(text) for text in vocabByDoc]
 
-	# print(str(vocabDict))
-	# print(corpora)
-	lda = LdaModel(newCorp, id2word=docVocabDict, num_topics=len(cats), chunksize=100, random_state=100, update_every=1, alpha='auto', passes=10, per_word_topics=True)
-
-	for thing in lda.print_topics():
-		print(thing)
-
-	print('\nPerplexity: ', lda.log_perplexity(newCorp))
-	coherence_model_lda = CoherenceModel(model=lda, texts=vocabByDoc, dictionary=docVocabDict, coherence='c_v')
-	coherence_lda = coherence_model_lda.get_coherence()
-	print('\nCoherence Score: ', coherence_lda)
-
-
-	vis = pyLDAvis.gensim.prepare(lda, newCorp, docVocabDict)
-	pyLDAvis.save_html(vis, 'LDA_Visualization.html')
-	input("press any key to continue...");
-	''' 
+	makeLDA(twentyNewsTrain.data)
+	
+	
+	
 
 	# Doc 2 Vec work
 	# createDoc2VecModel(twentyNewsTrain.data[0:5])
@@ -358,30 +392,30 @@ if __name__ == '__main__':
 	'''
 	
 
-	# word 2 vec work
-	# createWord2VecModel(twentyNewsTrain.data);
+	# # word 2 vec work
+	# # createWord2VecModel(twentyNewsTrain.data);
 	
-	# load model
-	model = Word2Vec.load('model.bin')
-	# print(model)
+	# # load model
+	# model = Word2Vec.load('model.bin')
+	# # print(model)
 
-	displayWord2Vec(model);
-	# input("press any key to continue...")
+	# # displayWord2Vec(model);
+	# # input("press any key to continue...")
 
-	# keyed vector work
-	# from: https://machinelearningmastery.com/develop-word-embeddings-python-gensim/ 
-	filename = "./model.bin"
-	m = KeyedVectors.load(filename)
+	# # keyed vector work
+	# # from: https://machinelearningmastery.com/develop-word-embeddings-python-gensim/ 
+	# filename = "./model.bin"
+	# m = KeyedVectors.load(filename)
 
-	while True:
-		try:
-			pos = input("positive: ").split(" ")
-			neg = input("negative: ").split(" ")
-			result = m.most_similar(positive=pos, negative=neg, topn=5)
-			print(result)
-		except KeyError:
-			print("Not in vocab...")
-			continue
+	# while True:
+	# 	try:
+	# 		pos = input("positive: ").split(" ")
+	# 		# neg = input("negative: ").split(" ")
+	# 		result = m.most_similar(pos, topn=5)
+	# 		print(result)
+	# 	except KeyError:
+	# 		print("Not in vocab...")
+	# 		continue
 	
 	
 
