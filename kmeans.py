@@ -1,99 +1,86 @@
-print(__doc__)
-
-from time import time
-import numpy as np
-import matplotlib.pyplot as plt
-
-from sklearn import metrics
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
-from sklearn.datasets import load_digits
-from sklearn.decomposition import PCA
-from sklearn.preprocessing import scale
+from sklearn.metrics import adjusted_rand_score
+from sklearn.datasets import fetch_20newsgroups 
+from nltk.corpus import wordnet as wn
 
-np.random.seed(42)
+# see: http://brandonrose.org/clustering#K-means-clustering
 
-digits = load_digits()
-data = scale(digits.data)
-
-n_samples, n_features = data.shape
-n_digits = len(np.unique(digits.target))
-labels = digits.target
-
-sample_size = 300
-
-print("n_digits: %d, \t n_samples %d, \t n_features %d"
-      % (n_digits, n_samples, n_features))
+def tryWord(word):
+	if not wn.synsets(word):
+		return False
+	else:
+		return True
 
 
-print(82 * '_')
-print('init\t\ttime\tinertia\thomo\tcompl\tv-meas\tARI\tAMI\tsilhouette')
+def createDocVocab(data):
+	things = []
+	sentences = []
+	for doc in twentyNewsTrain.data:
+		things.append(doc.split(". "))
+
+	# print(doc)
+		
+	idx = 0;	
+	for item in things:
+		for doc in things[idx]:
+			arr = []			
+			word_arr = doc.split(" ")
+			for word in word_arr:
+				if tryWord(word):
+					arr.append(word)
+				else:
+					continue
+			sentences.append(" ".join(arr))
+		idx = idx + 1;
+
+	# input(sentences)
+	'''
+	# train model
+	model = Word2Vec(sentences, min_count=1)
+	# summarize the loaded model
+	# print(model)
+	# summarize vocabulary
+	words = list(model.wv.vocab)
+	# print(words)
+	# access vector for one word
+	# print(model['sentence'])
+	# save model
+	model.save('model.bin')
+	'''
+	return sentences
+
+'''
+documents = ["Human machine interface for lab abc computer applications",
+             "A survey of user opinion of computer system response time",
+             "The EPS user interface management system",
+             "System and human system engineering testing of EPS",
+             "Relation of user perceived response time to error measurement",
+             "The generation of random binary unordered trees",
+             "The intersection graph of paths in trees",
+             "Graph minors IV Widths of trees and well quasi ordering",
+             "Graph minors A survey"]
+'''
 
 
-def bench_k_means(estimator, name, data):
-    t0 = time()
-    estimator.fit(data)
-    print('%-9s\t%.2fs\t%i\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f'
-          % (name, (time() - t0), estimator.inertia_,
-             metrics.homogeneity_score(labels, estimator.labels_),
-             metrics.completeness_score(labels, estimator.labels_),
-             metrics.v_measure_score(labels, estimator.labels_),
-             metrics.adjusted_rand_score(labels, estimator.labels_),
-             metrics.adjusted_mutual_info_score(labels,  estimator.labels_),
-             metrics.silhouette_score(data, estimator.labels_,
-                                      metric='euclidean',
-                                      sample_size=sample_size)))
+cats = ["comp.windows.x", "comp.os.ms-windows.misc", "talk.politics.misc", "comp.sys.ibm.pc.hardware","talk.religion.misc","rec.autos","sci.space","talk.politics.guns","alt.atheism","misc.forsale","comp.graphics","sci.electronics","sci.crypt","soc.religion.christian","rec.sport.hockey","sci.med","rec.motorcycles","comp.sys.mac.hardware","talk.politics.mideast","rec.sport.baseball"];
+subcats = ["comp.windows.x", "sci.med", "rec.sport.hockey", "soc.religion.christian"]
+twentyNewsTrain = fetch_20newsgroups(subset='train', categories= subcats, shuffle=True, random_state=42, remove=('headers'))
 
-bench_k_means(KMeans(init='k-means++', n_clusters=n_digits, n_init=10),
-              name="k-means++", data=data)
+documents = createDocVocab(twentyNewsTrain.data)
 
-bench_k_means(KMeans(init='random', n_clusters=n_digits, n_init=10),
-              name="random", data=data)
+vectorizer = TfidfVectorizer(stop_words='english')
+X = vectorizer.fit_transform(documents)
 
-# in this case the seeding of the centers is deterministic, hence we run the
-# kmeans algorithm only once with n_init=1
-pca = PCA(n_components=n_digits).fit(data)
-bench_k_means(KMeans(init=pca.components_, n_clusters=n_digits, n_init=1),
-              name="PCA-based",
-              data=data)
-print(82 * '_')
+true_k = 20
+model = KMeans(n_clusters=true_k, init='k-means++', max_iter=100, n_init=1)
+model.fit(X)
 
-# #############################################################################
-# Visualize the results on PCA-reduced data
-
-reduced_data = PCA(n_components=2).fit_transform(data)
-kmeans = KMeans(init='k-means++', n_clusters=n_digits, n_init=10)
-kmeans.fit(reduced_data)
-
-# Step size of the mesh. Decrease to increase the quality of the VQ.
-h = .02     # point in the mesh [x_min, x_max]x[y_min, y_max].
-
-# Plot the decision boundary. For that, we will assign a color to each
-x_min, x_max = reduced_data[:, 0].min() - 1, reduced_data[:, 0].max() + 1
-y_min, y_max = reduced_data[:, 1].min() - 1, reduced_data[:, 1].max() + 1
-xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
-
-# Obtain labels for each point in mesh. Use last trained model.
-Z = kmeans.predict(np.c_[xx.ravel(), yy.ravel()])
-
-# Put the result into a color plot
-Z = Z.reshape(xx.shape)
-plt.figure(1)
-plt.clf()
-plt.imshow(Z, interpolation='nearest',
-           extent=(xx.min(), xx.max(), yy.min(), yy.max()),
-           cmap=plt.cm.Paired,
-           aspect='auto', origin='lower')
-
-plt.plot(reduced_data[:, 0], reduced_data[:, 1], 'k.', markersize=2)
-# Plot the centroids as a white X
-centroids = kmeans.cluster_centers_
-plt.scatter(centroids[:, 0], centroids[:, 1],
-            marker='x', s=169, linewidths=3,
-            color='w', zorder=10)
-plt.title('K-means clustering on the digits dataset (PCA-reduced data)\n'
-          'Centroids are marked with white cross')
-plt.xlim(x_min, x_max)
-plt.ylim(y_min, y_max)
-plt.xticks(())
-plt.yticks(())
-plt.show()
+print("Top terms per cluster:")
+order_centroids = model.cluster_centers_.argsort()[:, ::-1]
+terms = vectorizer.get_feature_names()
+for i in range(true_k):
+    print("Cluster " + str(i) + ":");
+    for ind in order_centroids[i, :10]:
+        print(terms[ind])
+    print
