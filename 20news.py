@@ -1,8 +1,8 @@
 # General
 import string
 import numpy as np
-
-from scipy.cluster.hierarchy import ward, dendrogram
+import random
+import os  
 
 # sklearn
 from sklearn.datasets import fetch_20newsgroups 
@@ -46,28 +46,14 @@ import pyLDAvis.sklearn
 import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
-# %matplotlib inline
+import plotly
+import plotly.plotly as py
+import plotly.graph_objs as go
 
 # Warnings
 import warnings
 warnings.filterwarnings("ignore",category=DeprecationWarning)
 
-import logging
-logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.ERROR)
-
-import random
-import pandas as pd
-
-import os  # for os.path.basename
-
-# import matplotlib.pyplot as plt
-# import matplotlib as mpl
-
-# PLotly is an alterative to matlibplot.
-# conda install plotly
-import plotly
-import plotly.plotly as py
-import plotly.graph_objs as go
 
 py.plotly.tools.set_credentials_file(username='tym0027', api_key='3z8kCvgxHDE7IS5gVblD')
 
@@ -80,7 +66,6 @@ corpusSpecificStopwords = ['subject', '--', 'you', "\'\'", "``", "...", 'would',
 							'want', 'help', 'thing', 'come', 'may', 'many', 'people', 'time', 'go', 'take', 'well', 'even', 'good', 'right', 'much', 'way', 'year', 'try', 
 							'work', 'going', 'really', 'seem', 'new', 'back', 'problem', 'two', 'look', 'mean', 'tell', 'sure', 'day', 'question', 'case', 'still', 'first'
 							'please', 'give', 'maybe']
-tfidfThreshold = 0
 
 class customTokenizer(object):
 	def __init__(self):
@@ -89,37 +74,6 @@ class customTokenizer(object):
 		tokens = customPreprocessor(self.lem, doc)
 		return tokens
 
-def plotlyGraph(trueK, labels, gTitle, data, plot_name, labelsBool):
-	cluster_names = {};
-	cluster_colors = {};
-	colors = ['#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', '#808080']
-
-	idx = 0;
-	d = {}
-	for i in range(0, 20):
-		d[i] = {"x":[], "y":[]}
-		cluster_colors[i] = colors[i];
-		if labelsBool:
-			cluster_names[i] = catsDescription[i]
-		else:
-			cluster_names[i] = "( " + str(i) + " )"
-
-	for i in labels:
-		d[labels[idx]]["x"].append(data[idx, 0])
-		d[labels[idx]]["y"].append(data[idx, 1])
-		idx = idx + 1;
-
-	trace = []
-	for i in range(0, trueK):
-		trace.append(go.Scatter(x = d[i]["x"], y = d[i]["y"], name = cluster_names[i],mode = 'markers',marker = dict(size = 10, color = cluster_colors[i], line = dict(width = 2,color = 'rgb(0, 0, 0)'))));
-
-
-	layout = dict(title = gTitle, yaxis = dict(zeroline = False), xaxis = dict(zeroline = False))
-
-	fig = dict(data=trace, layout=layout)
-	plotly.offline.plot(fig, filename=plot_name)
-
-	return
 
 def customPreprocessor(lem, doc):
 	tokens = []
@@ -140,20 +94,6 @@ def customPreprocessor(lem, doc):
 								tokens += [tokLem]
 
 	return tokens
-
-
-
-def tryWord(word):
-	if not wn.synsets(word):
-		return False
-	else:
-		return True
-
-def display_topics(model, feature_names, no_top_words):
-    for topic_idx, topic in enumerate(model.components_):
-        print("Topic %d:" % (topic_idx))
-        print(" ".join([feature_names[i]
-                        for i in topic.argsort()[:-no_top_words - 1:-1]]))
 
 
 def preprocess(data, cat, PRINT):
@@ -243,20 +183,6 @@ def createWord2VecModel(data):
 			docTokens = customPreprocessor(lem, sent)
 			sentences.append(docTokens)
 
-		# for doc in things[idx]:
-		# 	arr = []			
-		# 	word_arr = doc.split(" ")
-		# 	for word in word_arr:
-		# 		# input(word)
-		# 		if tryWord(word):
-		# 			#print(True)
-		# 			arr.append(word)
-		# 		else:
-		# 			continue
-		# 			#print(False)	
-		# 	sentences.append(arr)
-		# idx = idx + 1;
-
 	# input(sentences)
 
 	# train model
@@ -290,7 +216,6 @@ def displayWord2Vec(model, wordsToPlot):
 
 def makeLDA(countVect, termMatrix):
 	lda = LatentDirichletAllocation(n_components=20, max_iter=15, learning_method='online',random_state=0).fit(termMatrix)
-	display_topics(lda, countVect.get_feature_names(), 10)
 
 	vis = pyLDAvis.sklearn.prepare(lda, termMatrix, countVect)
 	pyLDAvis.save_html(vis, 'LDA_Visualization_sk.html')
@@ -306,15 +231,6 @@ def makeDoc2Vec(fullVocab):
 	# create a scatter plot of the projection 
 	# print(twentyNewsTrain.target[0:20])
 	# print(twentyNewsTrain.filenames[0:20])
-
-	labels = []
-	for i in range(20):
-		indices = [j for j, x in enumerate(twentyNewsTrain.target) if x == i]
-		labels.append(i)
-	print(str(list(twentyNewsTrain.target)))
-	plotlyGraph(20, list(twentyNewsTrain.target), "Document Vectors", result, "doc2vecGroundTruth", True)
-	
-	'''	
 	for i in range(20):
 		indices = [j for j, x in enumerate(twentyNewsTrain.target) if x == i]
 		plt.scatter(result[indices, 0], result[indices, 1], label=catsDescription[i])
@@ -324,7 +240,6 @@ def makeDoc2Vec(fullVocab):
 	plt.title('Labeled Vector Representations of Documents\n(Doc2Vec)')
 	plt.axis('off')
 	plt.show()
-	'''
 
 	return model
 
@@ -336,13 +251,11 @@ def kMeansDocVec(doc2VecModel, nClasses):
 
 	pca = PCA(n_components=2).fit(doc2VecModel.docvecs.doctag_syn0)
 	datapoint = pca.transform(doc2VecModel.docvecs.doctag_syn0)
-
-	print(kmeans_model.labels_.tolist())
-	plotlyGraph(nClasses, kmeans_model.labels_.tolist(), "K-Means Using Document Vectors", datapoint, "kMeansDocVec", False);
-
-	# plt.figure
-	# plt.scatter(datapoint[:, 0], datapoint[:, 1], c=labels)
-	# plt.show()
+	plt.figure
+	plt.scatter(datapoint[:, 0], datapoint[:, 1], c=labels)
+	plt.title('K-Means Clustering of Document Vectors\n(Whole Dataset)')
+	plt.axis('off')
+	plt.show()
 
 def kMeansTFIDF(tfidfMatrix, target, nClasses):
 	kmeans_model = KMeans(n_clusters=nClasses, init='k-means++', max_iter=100, n_init=1)
@@ -352,56 +265,54 @@ def kMeansTFIDF(tfidfMatrix, target, nClasses):
 	pca = PCA(n_components=2).fit(tfidfMatrix.A)
 	datapoint = pca.transform(tfidfMatrix.A)
 	
-	
-	plotlyGraph(4, list(twentyNewsTrain.target), "Ground Truth of TF-IDF Vectors\n(4 Category Subset)", datapoint, "tfidfGroundTruth", True);
-
-	'''
 	plt.figure
-	# for i in range(nClasses):
+	for i in range(nClasses):
+		indices = [j for j, x in enumerate(target) if x == i]
+		plt.scatter(datapoint[indices, 0], datapoint[indices, 1], label=catsDescription[i])
 	
-	indices = [j for j, x in enumerate(target) if x == 0]
-	plt.scatter(datapoint[indices, 0], datapoint[indices, 1], c='#440154ff', label=subcatsDescription[0])
+	# indices = [j for j, x in enumerate(target) if x == 0]
+	# plt.scatter(datapoint[indices, 0], datapoint[indices, 1], c='#440154ff', label=subcatsDescription[0])
 
-	indices = [j for j, x in enumerate(target) if x == 1]
-	plt.scatter(datapoint[indices, 0], datapoint[indices, 1], c='#365c8cff',  label=subcatsDescription[1])
+	# indices = [j for j, x in enumerate(target) if x == 1]
+	# plt.scatter(datapoint[indices, 0], datapoint[indices, 1], c='#365c8cff',  label=subcatsDescription[1])
 
-	indices = [j for j, x in enumerate(target) if x == 3]
-	plt.scatter(datapoint[indices, 0], datapoint[indices, 1], c= '#238b8dff', label=subcatsDescription[3])
+	# indices = [j for j, x in enumerate(target) if x == 3]
+	# plt.scatter(datapoint[indices, 0], datapoint[indices, 1], c= '#238b8dff', label=subcatsDescription[3])
 
-	indices = [j for j, x in enumerate(target) if x == 2]
-	plt.scatter(datapoint[indices, 0], datapoint[indices, 1], c= '#55c467ff', label=subcatsDescription[2])
+	# indices = [j for j, x in enumerate(target) if x == 2]
+	# plt.scatter(datapoint[indices, 0], datapoint[indices, 1], c= '#55c467ff', label=subcatsDescription[2])
 	
-	leg = plt.legend(loc=8, frameon=False, mode='expand', ncol=nClasses)
+	# leg = plt.legend(loc=8, frameon=False, mode='expand', ncol=nClasses)
+	leg = plt.legend(frameon=False)
 	leg.set_draggable(True)
 	plt.axis('off')
-	plt.title('Ground Truth of TF-IDF Vectors\n(4 Category Subset)')
+	plt.title('Ground Truth of TF-IDF Vectors\n(Whole Dataset)')
 	plt.show()
-	'''
 
-	plotlyGraph(4, kmeans_model.labels_.tolist(), "K-Means Clustering of TF-IDF Vectors\n(4 Category Subset)", datapoint, "tfidfKmeans", False);
 
-	'''
+
 	plt.figure
 
-	indices = [j for j, x in enumerate(labels) if x == 0]
-	plt.scatter(datapoint[indices, 0], datapoint[indices, 1], c='#440154ff')
+	# indices = [j for j, x in enumerate(labels) if x == 0]
+	# plt.scatter(datapoint[indices, 0], datapoint[indices, 1], c='#440154ff')
 
-	indices = [j for j, x in enumerate(labels) if x == 1]
-	plt.scatter(datapoint[indices, 0], datapoint[indices, 1], c='#365c8cff')
+	# indices = [j for j, x in enumerate(labels) if x == 1]
+	# plt.scatter(datapoint[indices, 0], datapoint[indices, 1], c='#365c8cff')
 
-	indices = [j for j, x in enumerate(labels) if x == 3]
-	plt.scatter(datapoint[indices, 0], datapoint[indices, 1], c= '#238b8dff')
+	# indices = [j for j, x in enumerate(labels) if x == 3]
+	# plt.scatter(datapoint[indices, 0], datapoint[indices, 1], c= '#238b8dff')
 
-	indices = [j for j, x in enumerate(labels) if x == 2]
-	plt.scatter(datapoint[indices, 0], datapoint[indices, 1], c= '#55c467ff')
+	# indices = [j for j, x in enumerate(labels) if x == 2]
+	# plt.scatter(datapoint[indices, 0], datapoint[indices, 1], c= '#55c467ff')
 	
-	plt.axis('off')
-	plt.title('K-Means Clustering of TF-IDF Vectors\n(4 Category Subset)')
-	plt.show()
-	'''
-	# plt.scatter(datapoint[:, 0], datapoint[:, 1], c=labels)
 	# plt.axis('off')
+	# plt.title('K-Means Clustering of TF-IDF Vectors\n(4 Category Subset)')
 	# plt.show()
+
+	plt.scatter(datapoint[:, 0], datapoint[:, 1], c=labels)
+	plt.axis('off')
+	plt.title('K-Means Clustering of TF-IDF Vectors\n(Whole Dataset)')
+	plt.show()
 
 
 if __name__ == '__main__':
@@ -424,14 +335,17 @@ if __name__ == '__main__':
 		print(str(entry) + ", " + str(stats).replace("[", '').replace("]", '') + str("\n"))
 	'''
 	# Do all at once
-	twentyNewsTrain = fetch_20newsgroups(subset='train', categories=subcats, shuffle=True, random_state=42, remove=('headers'))
+	twentyNewsTrain = fetch_20newsgroups(subset='train', categories=cats, shuffle=True, random_state=42, remove=('headers'))
 
 	
-	fullVocab = []
-	lem = WordNetLemmatizer()
-	for doc in twentyNewsTrain.data: 
-	 	docTokens = customPreprocessor(lem, doc)
-	 	fullVocab.append(docTokens)
+	# Much of this code is commented out as we would comment in individual functions to perform the different modeling/visualization tasks. 
+	# Portions of the below code can be commented in to perform the necessary tasks
+
+	# fullVocab = []
+	# lem = WordNetLemmatizer()
+	# for doc in twentyNewsTrain.data: 
+	# 	docTokens = customPreprocessor(lem, doc)
+	# 	fullVocab.append(docTokens)
 
 	# docVocabDict = Dictionary(fullVocab)
 	# corp = [docVocabDict.doc2bow(text) for text in fullVocab]
@@ -439,8 +353,8 @@ if __name__ == '__main__':
 	
 	countVect, termMatrix, tfidfMatrix = preprocess(twentyNewsTrain.data, subcats, False)
 	
-	# kMeans tfidf
-	kMeansTFIDF(tfidfMatrix, twentyNewsTrain.target, 4)
+	# kMeans tfidf 
+	kMeansTFIDF(tfidfMatrix, twentyNewsTrain.target, 20)
 
 	# LDA
 	# makeLDA(countVect, termMatrix)
@@ -450,9 +364,6 @@ if __name__ == '__main__':
 
 	# kMeans doc2Vec
 	# kMeansDocVec(doc2VecModel, 20)
-
-
-
 
 
 
@@ -468,7 +379,7 @@ if __name__ == '__main__':
 	
 	'''
 	# # word 2 vec work
-	# createWord2VecModel(twentyNewsTrain.data);
+	# createWord2VecModel(twentyNewsTrain.data);  
 	
 	# load model
 	model = Word2Vec.load('model.bin')
@@ -493,7 +404,6 @@ if __name__ == '__main__':
 			print("Not in vocab...")
 			continue
 	'''
-	
 	
 
 
