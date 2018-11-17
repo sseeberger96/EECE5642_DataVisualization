@@ -15,6 +15,7 @@ print(B["meta"]["previous"])
 print(B["meta"]["total_count"])
 '''
 
+''' # Parse Data from hubway github and save to csv
 csvFile = open("./stationData.txt", 'w')
 csvFile.write("name,id,lat,lon")
 for data in B["objects"]:
@@ -23,4 +24,11 @@ for data in B["objects"]:
 	print(s + "\n")
 
 csvFile.close()
+'''
+
+''' # Parse objects from state Data
+for obj in B["objects"]:
+	print(str("\n") + str(obj))
+	input()
+'''
 		
