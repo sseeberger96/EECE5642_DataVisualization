@@ -48,10 +48,9 @@ def countTrips(data):
 
 	return numTrips
 
-	# print(numTrips[200][21])
 
 def getRelAngles(stationCoords): 
-	relAngles = np.zeros((250,250))
+	relAngles = -1*np.ones((250,250))
 	for stationA in stationCoords:
 		# print(stationA)
 		for stationB in stationCoords: 
@@ -67,32 +66,51 @@ def getRelAngles(stationCoords):
 				x = np.cos(latARad)*np.sin(latBRad) - np.sin(latARad)*np.cos(latBRad)*np.cos(adjLong)
 
 				angle = np.arctan2(y,x)*(180/np.pi)
+				angle = -1*(angle - 90)
 
 				if angle < 0:
 					angle = 360 + angle
 
 				relAngles[stationA][stationB] = angle
-
-
-
-
-
-
-				# angle = np.arctan2(adjLat,adjLong)*(180/np.pi)
-				# if angle < 0:
-				# 	angle = 360 + angle
-				# relAngles[stationA][stationB] = angle
-
+			else: 
+				relAngles[stationA][stationB] = 0
 
 	return relAngles
 
+def getQuantityFlowVectors(stationCoords, relAngles, numTrips, numSlices):
+	angleInc = 360/numSlices
+	flowVectors = np.zeros((250,numSlices)).tolist()
 
+	for stationA in stationCoords: 
+		minAngle = 0
+		maxAngle = angleInc
+		stationAngles = relAngles[stationA][:]
+		# if (stationA==12):
+		# 	# print(relAngles[stationA][:])
+		# 	print(minAngle)
+		# 	print(maxAngle)
+		for i in range(numSlices):
+			flowCount = 0
+			stationsInRange = np.where((stationAngles >= minAngle) & (stationAngles < maxAngle))
+			stationsInRange = stationsInRange[0].tolist()
+			anglesInRange =  stationAngles[(stationAngles >= minAngle) & (stationAngles < maxAngle)]
 
+			if stationsInRange:
+				for stationB in stationsInRange:
+					flowCount += numTrips[stationA][stationB] 
+				avgAngle = np.average(anglesInRange)
+			else: 
+				avgAngle = 0 
 
+			flowVectors[stationA][i] = (flowCount, avgAngle)
+			minAngle += angleInc
+			maxAngle += angleInc
 
+			# if (stationA==12 and i==0):
+			# 	print(stationsInRange)
+			# 	print(anglesInRange)
 
-
-
+	return flowVectors
 
 
 			
@@ -115,10 +133,14 @@ if __name__ == '__main__':
 	# print(monthData[0]['start station id'])
 
 	# searchStationIds(monthData)
-	countTrips(monthData)
+	numTrips = countTrips(monthData)
 
 
-	angles = getRelAngles(stationCoords)
-	print(angles[12][5])
+	relAngles = getRelAngles(stationCoords)
+	# print(relAngles[12][27])
+	flowVectors = getQuantityFlowVectors(stationCoords, relAngles, numTrips, 4)
+	print(flowVectors[12][:])
+	# print(numTrips[12][:])
+	# print(relAngles[12][:])
 	# print(np.arctan2(0,1)*(180/np.pi))
 
