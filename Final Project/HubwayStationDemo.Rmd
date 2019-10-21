@@ -1,0 +1,510 @@
+---
+title: "Hubway Station Demo"
+author: "T. A. Rupprecht & Steven Seeberger"
+date: "November 14, 2018"
+output:
+  html_document: default
+---
+
+## Hubway Stations in Boston - Visualized
+
+```{r warnings=FALSE, message=FALSE,error=FALSE}
+library(ggmap)
+library(knitr)
+library(kableExtra)
+
+library(rgdal)
+library(ggplot2)
+library(RColorBrewer)
+library(sp)
+
+myData <- read.csv(file="./stationData.txt", header=TRUE, sep=",")
+kable(myData) %>%
+kable_styling(bootstrap_options = c("striped", "hover"))
+
+```
+
+```{r warnings=FALSE, message=FALSE,error=FALSE}
+library(ggmap)
+library(mapproj)
+library(interp)
+library(knitr)
+library(googleAnalyticsR)
+library(googleway)
+
+library(rgdal)
+library(ggplot2)
+library(RColorBrewer)
+library(sp)
+library(plotly)
+
+#ele_lon <- c(seq(from = -72, to = -69, by = .1))
+#ele_lat <- c(seq(from = 41, to = 44, by = .1))
+#ele_data <-  data.frame(Longitude=ele_lon,Latitude=ele_lat)
+#elevationData <- google_elevation(df_locations = ele_data, key = "AIzaSyBeg1M1BMLVayyfaFoJReXcbXWRctThPcQ")
+#e <- data.matrix(elevationData$results$elevation, rownames.force = False)
+
+####
+# library(plotly)
+
+# df.list <- list(x = 1:100,
+#           y = 500:599,
+#           z = matrix(rnorm(10000), nrow = 100))
+
+#elevationData$results$elevation[elevationData$results$elevation<0] <- 0
+
+#df.dataframe <- data.frame(x = c(elevationData$results$location$lng),
+#                           y = c(elevationData$results$location$lat),
+#                           z = c(elevationData$results$elevation))
+
+#p <- plot_ly(df.dataframe, x = ele_lon, y =ele_lat, z = as.matrix(df.dataframe), type = "surface")
+#chart_link = api_create(p, filename="volcano.html")
+#htmlwidgets::saveWidget(as_widget(p), "volcano.html")
+
+# Works fine
+#plot_ly(df.list, x = x, y = y, z = z, type = "surface")
+
+# load the data
+# tartu_housing <- read.csv("data/tartu_housing_xy_wgs84_a.csv", sep = ";")
+ 
+# Download the base map
+# boston_heatmap <- get_map(location = "boston", zoom = 13)
+# Draw the heat map
+#ggmap(boston_heatmap, extent = "device") + geom_density2d(data = elevationData, aes(x = lon, y = lat), #size = 0.3) + 
+#  stat_density2d(data = elevationData, 
+#                 aes(x = lon, y = lat, fill = ..level.., alpha = ..level..), size = 0.01, 
+#                 bins = 16, geom = "polygon") + scale_fill_gradient(low = "green", high = "red") + 
+# scale_alpha(range = c(0, 0.3), guide = FALSE)
+
+```
+
+
+```{r warnings=FALSE, message=FALSE,error=FALSE}
+library(ggmap)
+library(mapproj)
+library(interp)
+library(knitr)
+library(googleAnalyticsR)
+library(googleway)
+
+library(rgdal)
+library(ggplot2)
+library(RColorBrewer)
+library(sp)
+library(plotly)
+# route histograms
+
+if (FALSE)
+{
+stationData <- read.csv(file="./stationData.txt", header=TRUE, sep=",")
+routeData <- read.csv(file="./old-routes.txt", header=TRUE, sep=",")
+
+start_lat <- numeric()
+start_lon <- numeric()
+stop_lat <- numeric()
+stop_lon <- numeric()
+
+old_dist_ele <- numeric()
+
+index <- 1
+for (thisThing in routeData$start){
+  print(index)
+  start_lat <- append(start_lat, stationData[which(routeData$start[index] == stationData$id),3])
+  start_lon <- append(start_lon, stationData[which(routeData$start[index] == stationData$id),4])
+  start_lat <- append(start_lat, stationData[which(routeData$stop[index] == stationData$id),3])
+  start_lon <- append(start_lon, stationData[which(routeData$stop[index] == stationData$id),4])  
+  
+  start_data <- data.frame(Longitude=stationData[which(routeData$start[index] == stationData$id),4],Latitude=stationData[which(routeData$start[index] == stationData$id),3])
+  
+  stop_data <- data.frame(Longitude=stationData[which(routeData$stop[index] == stationData$id),4],Latitude=stationData[which(routeData$stop[index] == stationData$id),3])
+  
+  start_height <- google_elevation(df_locations = start_data, key = "AIzaSyBeg1M1BMLVayyfaFoJReXcbXWRctThPcQ")
+  
+  stop_height <- google_elevation(df_locations = stop_data, key = "AIzaSyBeg1M1BMLVayyfaFoJReXcbXWRctThPcQ")
+  
+  old_dist_ele <- append(old_dist_ele, stop_height$results$elevation - start_height$results$elevation)
+  
+  index <- index + 1
+}
+
+routeData <- read.csv(file="./young-routes.txt", header=TRUE, sep=",")
+
+start_lat <- numeric()
+start_lon <- numeric()
+stop_lat <- numeric()
+stop_lon <- numeric()
+
+young_dist_ele <- numeric()
+
+index <- 1
+for (thisThing in routeData$start){
+  print(index)
+  start_lat <- append(start_lat, stationData[which(routeData$start[index] == stationData$id),3])
+  start_lon <- append(start_lon, stationData[which(routeData$start[index] == stationData$id),4])
+  start_lat <- append(start_lat, stationData[which(routeData$stop[index] == stationData$id),3])
+  start_lon <- append(start_lon, stationData[which(routeData$stop[index] == stationData$id),4])  
+  
+  start_data <- data.frame(Longitude=stationData[which(routeData$start[index] == stationData$id),4],Latitude=stationData[which(routeData$start[index] == stationData$id),3])
+  
+  stop_data <- data.frame(Longitude=stationData[which(routeData$stop[index] == stationData$id),4],Latitude=stationData[which(routeData$stop[index] == stationData$id),3])
+  
+  start_height <- google_elevation(df_locations = start_data, key = "AIzaSyBeg1M1BMLVayyfaFoJReXcbXWRctThPcQ")
+  
+  stop_height <- google_elevation(df_locations = stop_data, key = "AIzaSyBeg1M1BMLVayyfaFoJReXcbXWRctThPcQ")
+  
+  young_dist_ele <- append(young_dist_ele, stop_height$results$elevation - start_height$results$elevation)
+  
+  index <- index + 1
+}
+
+routeData <- read.csv(file="./subscriber-routes.txt", header=TRUE, sep=",")
+
+start_lat <- numeric()
+start_lon <- numeric()
+stop_lat <- numeric()
+stop_lon <- numeric()
+
+subscriber_dist_ele <- numeric()
+
+index <- 1
+for (thisThing in routeData$start){
+  print(index)
+  start_lat <- append(start_lat, stationData[which(routeData$start[index] == stationData$id),3])
+  start_lon <- append(start_lon, stationData[which(routeData$start[index] == stationData$id),4])
+  start_lat <- append(start_lat, stationData[which(routeData$stop[index] == stationData$id),3])
+  start_lon <- append(start_lon, stationData[which(routeData$stop[index] == stationData$id),4])  
+  
+  start_data <- data.frame(Longitude=stationData[which(routeData$start[index] == stationData$id),4],Latitude=stationData[which(routeData$start[index] == stationData$id),3])
+  
+  stop_data <- data.frame(Longitude=stationData[which(routeData$stop[index] == stationData$id),4],Latitude=stationData[which(routeData$stop[index] == stationData$id),3])
+  
+  start_height <- google_elevation(df_locations = start_data, key = "AIzaSyBeg1M1BMLVayyfaFoJReXcbXWRctThPcQ")
+  
+  stop_height <- google_elevation(df_locations = stop_data, key = "AIzaSyBeg1M1BMLVayyfaFoJReXcbXWRctThPcQ")
+  
+  subscriber_dist_ele <- append(subscriber_dist_ele, stop_height$results$elevation - start_height$results$elevation)
+  
+  index <- index + 1
+}
+
+routeData <- read.csv(file="./customer-routes.txt", header=TRUE, sep=",")
+
+start_lat <- numeric()
+start_lon <- numeric()
+stop_lat <- numeric()
+stop_lon <- numeric()
+
+customer_dist_ele <- numeric()
+
+index <- 1
+for (thisThing in routeData$start){
+  print(index)
+  start_lat <- append(start_lat, stationData[which(routeData$start[index] == stationData$id),3])
+  start_lon <- append(start_lon, stationData[which(routeData$start[index] == stationData$id),4])
+  start_lat <- append(start_lat, stationData[which(routeData$stop[index] == stationData$id),3])
+  start_lon <- append(start_lon, stationData[which(routeData$stop[index] == stationData$id),4])  
+  
+  start_data <- data.frame(Longitude=stationData[which(routeData$start[index] == stationData$id),4],Latitude=stationData[which(routeData$start[index] == stationData$id),3])
+  
+  stop_data <- data.frame(Longitude=stationData[which(routeData$stop[index] == stationData$id),4],Latitude=stationData[which(routeData$stop[index] == stationData$id),3])
+  
+  start_height <- google_elevation(df_locations = start_data, key = "AIzaSyBeg1M1BMLVayyfaFoJReXcbXWRctThPcQ")
+  
+  stop_height <- google_elevation(df_locations = stop_data, key = "AIzaSyBeg1M1BMLVayyfaFoJReXcbXWRctThPcQ")
+  
+  customer_dist_ele <- append(customer_dist_ele, stop_height$results$elevation - start_height$results$elevation)
+  
+  index <- index + 1
+}
+
+f <- list(
+  family = "Courier New, monospace",
+  size = 18,
+  color = "#7f7f7f"
+)
+y <- list(
+  title = "Change in Elevation During Rides (ft.)",
+  titlefont = f
+)
+
+p <- plot_ly(type = 'box') %>%
+  add_boxplot(y = old_dist_ele, jitter = 0.3, pointpos = -1.8, boxpoints = 'all',
+              marker = list(color = 'rgb(255,0,0)'),
+              line = list(color = 'rgb(255,0,0)'),
+              name = "Older than 30 yrs old") %>%
+  add_boxplot(y = young_dist_ele, jitter = 0.3, pointpos = -1.8, boxpoints = 'all',
+              marker = list(color = 'rgb(0,255,0)'),
+              line = list(color = 'rgb(0,255,0)'),
+              name = "Younger than 30 yrs old") %>%
+  add_boxplot(y = customer_dist_ele, jitter = 0.3, pointpos = -1.8, boxpoints = 'all',
+              marker = list(color = 'rgb(0,0,255)'),
+              line = list(color = 'rgb(0,0,255)'),
+              name = "One Time Customers") %>%
+  add_boxplot(y = subscriber_dist_ele, jitter = 0.3, pointpos = -1.8, boxpoints = 'all',
+              marker = list(color = 'rgb(0,0,0)'),
+              line = list(color = 'rgb(0,0,0)'),
+              name = "Subscribers") %>%
+  layout(yaxis = y)
+htmlwidgets::saveWidget(as_widget(p), "elevation-subcats.html")
+}
+```
+
+```{r warnings=FALSE, message=FALSE,error=FALSE}
+library(ggmap)
+library(mapproj)
+library(interp)
+library(knitr)
+library(googleAnalyticsR)
+library(googleway)
+
+library(rgdal)
+library(ggplot2)
+library(RColorBrewer)
+library(sp)
+library(plotly)
+
+register_google(key = "AIzaSyBeg1M1BMLVayyfaFoJReXcbXWRctThPcQ")
+
+has_goog_key()
+
+myData <- read.csv(file="./stationData.txt", header=TRUE, sep=",")
+
+myLocation <- c(-71.15, 42.3, -71, 42.4)
+
+ele_lon <- c(seq(from = -72, to = -69, by = .1))
+ele_lat <- c(seq(from = 41, to = 44, by = .1))
+ele_data <-  data.frame(Longitude=myData$lon,Latitude=myData$lat)
+
+sample <- google_elevation(df_locations = ele_data, key = "AIzaSyBeg1M1BMLVayyfaFoJReXcbXWRctThPcQ")
+
+index <- 1
+LAT = list()
+LON = list()
+for (thing in sample$results$location[,2]){
+    #print(thing)
+    #print(index)
+    for (i in 1:ceiling(sample$results$elevation[index])){
+      LAT[length(LAT)+1] <- sample$results$location[,1][index]
+      LON[length(LON)+1] <- sample$results$location[,2][index]
+    }
+    
+    index <- index + 1
+}
+
+elevationData <-  data.frame(Longitude=as.numeric(as.character(unlist(LON))),Latitude=as.numeric(as.character(unlist(LAT))))
+
+# Download the base map ELEVATION
+myMap <- get_map(location=myLocation, source="stamen", maptype="toner", crop=FALSE)
+#myMap <- get_map(location = myLocation, source="google", maptype="satellite", crop=FALSE)
+# Draw the heat map
+tiff("elevation.tiff", units="in", width=5, height=5, res=300)
+ggmap(myMap, extent = "device") + 
+  geom_density2d(data = elevationData, aes(x = elevationData$Longitude, y = elevationData$Latitude), size = 0.3) + 
+  stat_density2d(data = elevationData,
+                 aes(x = elevationData$Longitude, y = elevationData$Latitude, fill = ..level.., alpha = ..level..), 
+                 size = 0.01, bins = 16, geom = "polygon") + 
+  scale_fill_gradient(low = "lightgreen", high = "darkgreen") + 
+  geom_point(aes(x =elevationData$Longitude, y =elevationData$Latitude), data = elevationData, alpha = .5, color="darkred", size = 3)+
+  scale_alpha(range = c(0, 0.3), guide = FALSE) +
+  xlim(-71.175,-71) +
+  ylim(42.275,42.425)+
+  theme(legend.position = "none", axis.title = element_blank(), text = element_text(size = 12))
+dev.off()
+
+
+sample <-  data.frame(Longitude=myData$lon,Latitude=myData$lat)
+
+# Download the base map DENSITY
+myMap <- get_map(location = myLocation, source="google", maptype="satellite", crop=FALSE)
+# Draw the heat map
+tiff("pretty_density.tiff", units="in", width=5, height=5, res=300)
+ggmap(myMap, extent = "device") + 
+  geom_density2d(data = sample, aes(x = myData$lon, y = myData$lat), size = 0.3) + 
+  stat_density2d(data = sample, 
+                 aes(x = myData$lon, y = myData$lat, fill = ..level.., alpha = ..level..), size = 0.01, 
+                 bins = 16, geom = "polygon") + 
+  scale_fill_gradient(low = "pink", high = "purple") + 
+  geom_point(aes(x =myData$lon, y =myData$lat), data = myData, alpha = .5, color="darkred", size = 3)+
+  scale_alpha(range = c(0, 0.3), guide = FALSE) +
+  #xlim(-71.175,-71) +
+  #ylim(42.275,42.425)+
+  theme(legend.position = "none", axis.title = element_blank(), text = element_text(size = 12))
+dev.off()
+
+# Simple Density
+tiff("density_simple_1.tiff", units="in", width=5, height=5, res=300)
+ggplot(sample, aes(x=Longitude, y=Latitude)) + 
+  stat_density2d(aes(fill = ..level..), alpha=0.5, geom="polygon")+
+  geom_point(colour="red")+
+  scale_fill_gradientn(colours=rev(brewer.pal(7,"Spectral")))+
+  xlim(-71.175,-71) +
+  ylim(42.275,42.425)+
+  theme(legend.position = "none", axis.title = element_blank(), text = element_text(size = 12))
+dev.off()
+
+```
+
+```{r warnings=FALSE, message=FALSE, error=FALSE}
+library(ggmap)
+library(knitr)
+library(kableExtra)
+
+library(rgdal)
+library(ggplot2)
+library(RColorBrewer) 
+library(sp)
+
+library(grid) # provides `arrow` function.
+
+library(plotly)
+
+
+register_google(key = "AIzaSyBeg1M1BMLVayyfaFoJReXcbXWRctThPcQ")
+
+has_goog_key()
+
+myLocation <- c(-71.15, 42.3, -71, 42.4)
+
+myData <- read.csv(file="./stationData.txt", header=TRUE, sep=",")
+flows <- read.csv(file="./flowvectors.txt", header=TRUE, sep=",")
+
+#Here is a solution achieved by adding the ends="first" option to your arrow() call. Also, it is #necessary to then reverse the the segment direction by reassigning x to xend, etc.
+#Credit goes to google and https://collab.firelab.org/svn/big-butte/forecast_tools/plotObsVectors.R
+# Your original code using geom_segment works fine when used in a standard ggplot plot, so I presume that ggmap is doing something unintended with the arrows and segments. It may be worth notifying the authors.
+# from: https://stackoverflow.com/questions/18747706/adding-a-bunch-of-arrows-to-a-ggmap
+
+p0 <- ggplot() +
+      geom_segment(data=df, aes(x=Lon, y=Lat, xend=LonEnd, yend=LatEnd),
+          arrow = arrow())
+
+#map <- ggmap(prep, size=c(100, 200), extent="device", darken=0.5, 
+#             legend="bottom") 
+
+
+myMap <- get_map(location=myLocation, source="stamen", maptype="toner", crop=FALSE)
+# myMap <- get_map(location=myLocation, zoom = 11, source="google", maptype="satellite", crop=FALSE)
+tiff("vf.tiff", units="in", width=5, height=5, res=300)
+ggmap(myMap)+
+geom_point(aes(x=myData$lon, y=myData$lat), data = myData, alpha = .5, color="darkred", size = 3)+
+  geom_segment(data=flows, aes(x=flows$stop_lon, y=flows$stop_lat, xend=flows$start_lon, yend=flows$start_lat), arrow=arrow(ends="first", length = unit(.15,"cm")), colour="blue",size=1) + 
+  # ALL
+  #xlim(-71.175,-71) +
+  #ylim(42.275,42.425)
+  xlim(-71.075,-71.025) +
+  ylim(42.33,42.38)
+# theme(legend.position = "none", axis.title = element_blank(), text = element_text(size = 12))
+dev.off()
+
+#p1 <- myMap + 
+#     geom_segment(data=df, aes(x=LonEnd, y=LatEnd, xend=Lon, yend=Lat), 
+#         arrow=arrow(ends="first"), colour="white") 
+
+#library(gridExtra)
+#ggsave(arrangeGrob(p0, p1, nrow=1), file="plots.png", 
+#    width=12, height=6, dpi=150)
+
+```
+
+```{r warnings=FALSE, message=FALSE, error=FALSE}
+library(ggmap)
+library(knitr)
+library(kableExtra)
+
+library(rgdal)
+library(ggplot2)
+library(RColorBrewer) 
+library(sp)
+
+library(plotly)
+
+
+register_google(key = "AIzaSyBeg1M1BMLVayyfaFoJReXcbXWRctThPcQ")
+
+has_goog_key()
+
+myLocation <- c(-71.15, 42.3, -71, 42.4)
+
+myData <- read.csv(file="./stationData.txt", header=TRUE, sep=",")
+# sample <- data.frame(Longitude=c(-1+rnorm(50,0,.5),-2+rnorm(50,0,0.5),-4.5+rnorm(50,0,.5)),
+                     # Latitude =c(52+rnorm(50,0,.5),54+rnorm(50,0,0.5),56+rnorm(50,0,.5)))
+
+myMap <- get_map(location=myLocation, source="stamen", maptype="watercolor", crop=FALSE)
+tiff("watercolor.tiff", units="in", width=5, height=5, res=300)
+ggmap(myMap)+
+geom_point(aes(x =myData$lon, y =myData$lat), data = myData, alpha = .5, color="darkred", size = 3)+
+xlim(-71.175,-71) +
+ylim(42.275,42.425)+
+theme(legend.position = "none", axis.title = element_blank(), text = element_text(size = 12))
+dev.off()
+
+myMap <- get_map(location=myLocation, source="stamen", maptype="toner", crop=FALSE)
+tiff("boston.tiff", units="in", width=5, height=5, res=300)
+ggmap(myMap)+
+geom_point(aes(x =myData$lon, y =myData$lat), data = myData, alpha = .5, color="darkred", size = 3)+
+xlim(-71.175,-71) +
+ylim(42.275,42.425)+
+theme(legend.position = "none", axis.title = element_blank(), text = element_text(size = 12))
+dev.off()
+
+myMap <- get_map(location=myLocation, source="stamen", maptype="toner", crop=FALSE)
+tiff("toner.tiff", units="in", width=5, height=5, res=300)
+ggmap(myMap)+
+geom_point(aes(x =myData$lon, y =myData$lat), data = myData, alpha = .5, color="darkred", size = 3)+
+xlim(-71.175,-71) +
+ylim(42.275,42.425)+
+theme(legend.position = "none", axis.title = element_blank(), text = element_text(size = 12))
+dev.off()
+
+myMap <- get_map(location=myLocation, zoom = 11, source="google", maptype="terrain", crop=FALSE)
+tiff("terrain.tiff", units="in", width=5, height=5, res=300)
+ggmap(myMap)+
+geom_point(aes(x =myData$lon, y =myData$lat), data = myData, alpha = .5, color="darkred", size = 3)+
+xlim(-71.175,-71) +
+ylim(42.275,42.425)+
+theme(legend.position = "none", axis.title = element_blank(), text = element_text(size = 12))
+dev.off()
+
+myMap <- get_map(location=myLocation, zoom = 11, source="google", maptype="satellite", crop=FALSE)
+tiff("satellite.tiff", units="in", width=5, height=5, res=300)
+ggmap(myMap)+
+geom_point(aes(x =myData$lon, y =myData$lat), data = myData, alpha = .5, color="darkred", size = 3)+
+xlim(-71.175,-71) +
+ylim(42.275,42.425)+
+theme(legend.position = "none", axis.title = element_blank(), text = element_text(size = 12))
+dev.off()
+
+myMap <- get_map(location=myLocation, zoom = 11, source="google", maptype="roadmap", crop=FALSE)
+tiff("roadmap.tiff", units="in", width=5, height=5, res=300)
+ggmap(myMap)+
+geom_point(aes(x =myData$lon, y =myData$lat), data = myData, alpha = .5, color="darkred", size = 3)+
+xlim(-71.175,-71) +
+ylim(42.275,42.425)+
+theme(legend.position = "none", axis.title = element_blank(), text = element_text(size = 12))
+dev.off()
+
+myMap <- get_map(location=myLocation, zoom = 11, source="google", maptype="hybrid", crop=FALSE)
+tiff("hybrid.tiff", units="in", width=5, height=5, res=300)
+ggmap(myMap)+
+geom_point(aes(x =myData$lon, y =myData$lat), data = myData, alpha = .5, color="darkred", size = 3)+
+xlim(-71.175,-71) +
+ylim(42.275,42.425)+
+theme(legend.position = "none", axis.title = element_blank(), text = element_text(size = 12))
+dev.off()
+
+sample <-  data.frame(Longitude=myData$lon,Latitude=myData$lat)
+USmap <- readRDS("gadm36_USA_0_sp.rds")
+map.df <- fortify(USmap)
+
+tiff("density_simple.tiff", units="in", width=5, height=5, res=300)
+ggplot(sample, aes(x=Longitude, y=Latitude)) + 
+  stat_density2d(aes(fill = ..level..), alpha=0.5, geom="polygon")+
+  geom_point(colour="red")+
+  geom_path(data=map.df,aes(x=long, y=lat,group=group), colour="grey50")+
+  scale_fill_gradientn(colours=rev(brewer.pal(7,"Spectral")))+
+  xlim(-71.175,-71) +
+  ylim(42.275,42.425) +
+  ##coord_fixed() +
+  theme(legend.position = "none", axis.title = element_blank(), text = element_text(size = 12))
+dev.off()
+
+```
